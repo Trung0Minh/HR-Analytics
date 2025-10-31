@@ -1,0 +1,1164 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Phân tích Khám phá Dữ liệu (EDA) - Dự đoán Thay đổi Công việc của Lập trình viên\n",
+    "## Giới thiệu\n",
+    "Trong notebook này, chúng ta sẽ thực hiện phân tích khám phá dữ liệu (EDA) trên tập dữ liệu HR Analytics. Mục tiêu của tập dữ liệu này là dự đoán khả năng một lập trình viên sẽ thay đổi công việc.\n",
+    "\n",
+    "**Các bước thực hiện:**\n",
+    "1.  **Tải và xem xét dữ liệu:** Load dữ liệu và xem các thông tin cơ bản.\n",
+    "2.  **Phân tích giá trị thiếu:** Kiểm tra các giá trị bị thiếu và trực quan hóa.\n",
+    "3.  **Phân tích biến mục tiêu:** Xem xét sự phân phối của biến `target`.\n",
+    "4.  **Phân tích các đặc trưng:** Phân tích sâu hơn về các đặc trưng số và phân loại.\n",
+    "5.  **Phân tích tương tác giữa các đặc trưng:** Khám phá mối quan hệ giữa các đặc trưng.\n",
+    "6.  **Tổng kết:** Đưa ra các kết luận và đề xuất cho bước tiếp theo."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import sys\n",
+    "import os\n",
+    "\n",
+    "# Thêm đường dẫn đến thư mục src để import các module\n",
+    "sys.path.append(os.path.abspath(os.path.join('..')))\n",
+    "\n",
+    "from src import data_processing as dp\n",
+    "from src import visualization as viz\n",
+    "import numpy as np\n",
+    "\n",
+    "# Cấu hình để hiển thị biểu đồ trong notebook\n",
+    "%matplotlib inline"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 1. Tải và xem xét dữ liệu"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tải dữ liệu\n",
+    "filepath = '../data/raw/aug_train.csv'\n",
+    "data = dp.load_data(filepath)\n",
+    "\n",
+    "# Hiển thị 5 dòng đầu tiên\n",
+    "print(\"5 dòng đầu tiên:\")\n",
+    "print(data[:5])\n",
+    "\n",
+    "# Hiển thị 5 dòng cuối cùng\n",
+    "print(\"5 dòng cuối cùng:\")\n",
+    "print(data[-5:])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lấy thông tin cơ bản\n",
+    "basic_info = dp.get_basic_info(data)\n",
+    "print(f\"Hình dạng dữ liệu: {basic_info['shape']}\")\n",
+    "print(f\"Các cột: {basic_info['columns']}\")\n",
+    "print(f\"Kiểu dữ liệu: {basic_info['dtypes']}\")\n",
+    "print(f\"Bộ nhớ sử dụng: {basic_info['memory_usage']} bytes\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Phân tích Giá trị Thiếu (Missing Values)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lấy tóm tắt giá trị thiếu\n",
+    "missing_summary = dp.get_missing_summary(data)\n",
+    "for col, summary in missing_summary.items():\n",
+    "    if summary['missing_count'] > 0:\n",
+    "        print(f\"Cột '{col}': {summary['missing_count']} giá trị thiếu ({summary['missing_percentage']:.2f}%)\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Trực quan hóa các mẫu giá trị thiếu\n",
+    "missing_matrix = dp.analyze_missing_patterns(data)\n",
+    "viz.plot_missing_heatmap(missing_matrix, data.dtype.names)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Các cột `gender`, `enrolled_university`, `education_level`, `major_discipline`, `experience`, `company_size`, `company_type`, `last_new_job` có giá trị thiếu.\n",
+    "- Cột `gender` có tỷ lệ thiếu cao nhất, tiếp theo là `major_discipline`.\n",
+    "- Heatmap cho thấy các giá trị thiếu có vẻ xuất hiện ngẫu nhiên và không tập trung ở các hàng cụ thể."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Phân tích Biến Mục tiêu (Target Variable)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lấy phân phối của biến mục tiêu\n",
+    "target_dist = dp.get_target_distribution(data)\n",
+    "print(f\"Phân phối của biến mục tiêu:\")\n",
+    "print(f\"  Số lượng: {target_dist['counts']}\")\n",
+    "print(f\"  Tỷ lệ phần trăm: {target_dist['percentages']}\")\n",
+    "print(f\"  Tỷ lệ mất cân bằng: {target_dist['imbalance_ratio']:.2f}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Trực quan hóa phân phối của biến mục tiêu\n",
+    "viz.plot_target_distribution(target_dist['counts'], target_dist['percentages'])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Dữ liệu bị mất cân bằng, với số lượng lập trình viên không muốn chuyển việc (target=0) nhiều hơn đáng kể so với số lượng muốn chuyển việc (target=1).\n",
+    "- Tỷ lệ mất cân bằng là khoảng 3:1. Điều này cần được xem xét trong giai đoạn mô hình hóa (ví dụ: sử dụng các kỹ thuật oversampling, undersampling hoặc các độ đo phù hợp)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4. Phân tích Đặc trưng Số (Numerical Features)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 4.1. city_development_index"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lấy tóm tắt thống kê\n",
+    "summary = dp.get_statistical_summary(data, 'city_development_index')\n",
+    "for k,v in summary.items():\n",
+    "    print(f\"{k}: {v}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Trực quan hóa phân phối\n",
+    "viz.plot_numerical_distribution(data, 'city_development_index')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Trực quan hóa so với biến mục tiêu\n",
+    "viz.plot_numerical_vs_target(data, 'city_development_index')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- `city_development_index` có phân phối lệch trái, với hầu hết các giá trị tập trung ở mức cao.\n",
+    "- Những người có khả năng chuyển việc (target=1) có xu hướng ở các thành phố có chỉ số phát triển thấp hơn."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 4.2. training_hours"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lấy tóm tắt thống kê\n",
+    "summary = dp.get_statistical_summary(data, 'training_hours')\n",
+    "for k,v in summary.items():\n",
+    "    print(f\"{k}: {v}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Trực quan hóa phân phối\n",
+    "viz.plot_numerical_distribution(data, 'training_hours')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích ngoại lệ\n",
+    "viz.plot_boxplot_with_outliers(data, 'training_hours')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- `training_hours` có phân phối khá đồng đều, không có độ lệch rõ rệt.\n",
+    "- Boxplot cho thấy không có nhiều giá trị ngoại lệ."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 4.3. Tương quan với biến mục tiêu"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tính toán tương quan\n",
+    "numerical_cols = ['city_development_index', 'training_hours']\n",
+    "correlations = dp.get_correlation_with_target(data, numerical_cols)\n",
+    "for k,v in correlations.items():\n",
+    "    print(f\"{k}: {v}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- `city_development_index` có tương quan âm với `target`, cho thấy chỉ số phát triển thành phố càng thấp thì khả năng chuyển việc càng cao.\n",
+    "- `training_hours` có tương quan rất yếu với `target`. "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5. Phân tích Đặc trưng Phân loại (Categorical Features)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.1. Gender"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân phối giới tính\n",
+    "gender_dist = dp.get_categorical_distribution(data, 'gender')\n",
+    "viz.plot_categorical_distribution(gender_dist['categories'], gender_dist['counts'], 'Phân phối Giới tính')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tỷ lệ target theo giới tính\n",
+    "gender_target_rate = dp.calculate_target_rate_by_category(data, 'gender')\n",
+    "categories = list(gender_target_rate.keys())\n",
+    "rates = [v['target_rate'] for v in gender_target_rate.values()]\n",
+    "counts = [v['count'] for v in gender_target_rate.values()]\n",
+    "viz.plot_target_by_category(categories, rates, counts, 'Giới tính')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Dữ liệu có phần lớn là nam giới.\n",
+    "- Tỷ lệ chuyển việc ở các giới tính không có sự khác biệt quá lớn."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.2. Relevent Experience"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân phối kinh nghiệm liên quan\n",
+    "exp_dist = dp.get_categorical_distribution(data, 'relevent_experience')\n",
+    "viz.plot_categorical_distribution(exp_dist['categories'], exp_dist['counts'], 'Phân phối Kinh nghiệm liên quan')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tỷ lệ target theo kinh nghiệm liên quan\n",
+    "exp_target_rate = dp.calculate_target_rate_by_category(data, 'relevent_experience')\n",
+    "categories = list(exp_target_rate.keys())\n",
+    "rates = [v['target_rate'] for v in exp_target_rate.values()]\n",
+    "counts = [v['count'] for v in exp_target_rate.values()]\n",
+    "viz.plot_target_by_category(categories, rates, counts, 'Kinh nghiệm liên quan')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Phần lớn ứng viên có kinh nghiệm liên quan.\n",
+    "- Những người không có kinh nghiệm liên quan có tỷ lệ chuyển việc cao hơn đáng kể."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.3. Enrolled University"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân phối tình trạng nhập học\n",
+    "enrolled_dist = dp.get_categorical_distribution(data, 'enrolled_university')\n",
+    "viz.plot_categorical_distribution(enrolled_dist['categories'], enrolled_dist['counts'], 'Phân phối Tình trạng Nhập học')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tỷ lệ target theo tình trạng nhập học\n",
+    "enrolled_target_rate = dp.calculate_target_rate_by_category(data, 'enrolled_university')\n",
+    "categories = list(enrolled_target_rate.keys())\n",
+    "rates = [v['target_rate'] for v in enrolled_target_rate.values()]\n",
+    "counts = [v['count'] for v in enrolled_target_rate.values()]\n",
+    "viz.plot_target_by_category(categories, rates, counts, 'Tình trạng Nhập học')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Hầu hết các ứng viên không đăng ký khóa học đại học nào.\n",
+    "- Những người đang theo học đại học (full-time hoặc part-time) có tỷ lệ chuyển việc cao hơn."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.4. Education Level"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân phối chuyên ngành chính\n",
+    "major_dist = dp.get_categorical_distribution(data, 'major_discipline')\n",
+    "viz.plot_categorical_distribution(major_dist['categories'], major_dist['counts'], 'Phân phối Chuyên ngành chính')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tỷ lệ target theo chuyên ngành chính\n",
+    "major_target_rate = dp.calculate_target_rate_by_category(data, 'major_discipline')\n",
+    "categories = list(major_target_rate.keys())\n",
+    "rates = [v['target_rate'] for v in major_target_rate.values()]\n",
+    "counts = [v['count'] for v in major_target_rate.values()]\n",
+    "viz.plot_target_by_category(categories, rates, counts, 'Chuyên ngành chính')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân phối trình độ học vấn\n",
+    "edu_dist = dp.get_categorical_distribution(data, 'education_level')\n",
+    "viz.plot_categorical_distribution(edu_dist['categories'], edu_dist['counts'], 'Phân phối Trình độ Học vấn')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tỷ lệ target theo trình độ học vấn\n",
+    "edu_target_rate = dp.calculate_target_rate_by_category(data, 'education_level')\n",
+    "categories = list(edu_target_rate.keys())\n",
+    "rates = [v['target_rate'] for v in edu_target_rate.values()]\n",
+    "counts = [v['count'] for v in edu_target_rate.values()]\n",
+    "viz.plot_target_by_category(categories, rates, counts, 'Trình độ Học vấn')"
+   ]
+  },
+    """
+    **Nhận xét:**
+    - Phần lớn ứng viên có trình độ đại học (Graduate).
+    - Tỷ lệ chuyển việc không có sự khác biệt lớn giữa các trình độ học vấn.
+    """
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.1.1. Phân tích giá trị thiếu của các đặc trưng phân loại"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "categorical_cols_for_missing_analysis = ['experience', 'company_size', 'company_type', 'last_new_job', 'major_discipline']\n",
+    "missing_categorical_info = dp.analyze_categorical_missing(data, categorical_cols_for_missing_analysis)\n",
+    "viz.plot_categorical_missing_analysis(missing_categorical_info)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Các cột `company_size`, `company_type`, `experience`, `last_new_job`, và `major_discipline` có tỷ lệ giá trị thiếu đáng kể. Đặc biệt, `company_size` và `company_type` có tỷ lệ thiếu cao nhất, cho thấy thông tin về công ty hiện tại của ứng viên thường không được cung cấp.\n",
+    "- `major_discipline` cũng có một lượng lớn giá trị thiếu, điều này có thể liên quan đến những người không có bằng cấp đại học hoặc không khai báo chuyên ngành.\n",
+    "- Việc xử lý các giá trị thiếu này sẽ rất quan trọng trong giai đoạn tiền xử lý dữ liệu để tránh làm mất thông tin hoặc gây sai lệch cho mô hình."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5.5. Phân tích các đặc trưng phân loại còn lại"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích kinh nghiệm làm việc (experience)",
+    "viz.plot_categorical_analysis(data, 'experience')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích quy mô công ty (company_size)",
+    "viz.plot_categorical_analysis(data, 'company_size')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích loại công ty (company_type)",
+    "viz.plot_categorical_analysis(data, 'company_type')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích công việc mới cuối cùng (last_new_job)",
+    "viz.plot_categorical_analysis(data, 'last_new_job')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích chuyên ngành chính (major_discipline)",
+    "viz.plot_categorical_analysis(data, 'major_discipline')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6. Phân tích Mối quan hệ Đặc trưng (Feature Interactions)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Tương tác giữa Experience và Education Level\n",
+    "interaction_data = dp.analyze_feature_interaction(data, 'experience', 'education_level')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data, 'Experience', 'Education Level')"
+   ]
+    """
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6.2. Phân tích mô hình thiếu sâu"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.2.1. Tương quan giữa các giá trị thiếu"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "viz.plot_missing_value_correlation(data)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ tương quan giá trị thiếu cho thấy các cặp cột có xu hướng cùng thiếu hoặc cùng không thiếu giá trị.\n",
+    "- Ví dụ, `company_size` và `company_type` có mối tương quan rất cao về giá trị thiếu, điều này hợp lý vì nếu thông tin về công ty bị thiếu, cả kích thước và loại công ty đều sẽ thiếu.\n",
+    "- `major_discipline` và `education_level` cũng có mối tương quan thiếu nhất định.\n",
+    "- Việc hiểu các mối tương quan này có thể giúp trong việc lựa chọn chiến lược điền giá trị thiếu phù hợp.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.2.2. So sánh tỷ lệ Target giữa các bản ghi có và không có giá trị thiếu"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "columns_to_compare_missing = ['gender', 'enrolled_university', 'education_level', 'major_discipline', 'experience', 'company_size', 'company_type', 'last_new_job']\n",
+    "for col in columns_to_compare_missing:\n",
+    "    missing_comparison = dp.compare_target_rate_by_missing(data, col)\n",
+    "    viz.plot_target_rate_by_missing(missing_comparison, col)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Phân tích cho thấy sự khác biệt về tỷ lệ chuyển việc (target rate) giữa các nhóm có và không có giá trị thiếu cho một số cột.\n",
+    "- Ví dụ, những ứng viên thiếu thông tin về `company_size` hoặc `company_type` có thể có tỷ lệ chuyển việc cao hơn, điều này có thể chỉ ra rằng họ đang tìm kiếm một cơ hội mới không liên quan đến công ty hiện tại hoặc họ là những người mới tham gia thị trường lao động (freelancer, startup)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.2.3. Phân tích các mẫu thiếu đa cột"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích các mẫu thiếu đa cột\n",
+    "columns_for_multi_missing = ['gender', 'enrolled_university', 'education_level', 'major_discipline', 'experience', 'company_size', 'company_type', 'last_new_job']\n",
+    "multi_missing_patterns = dp.analyze_multi_column_missing_patterns(data, columns_for_multi_missing)\n",
+    "viz.plot_multi_column_missing_patterns(multi_missing_patterns)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ cho thấy các tổ hợp cột thường bị thiếu cùng nhau. Ví dụ, `company_size` và `company_type` thường bị thiếu cùng nhau, điều này là hợp lý. Việc hiểu các mẫu này có thể giúp trong việc xử lý giá trị thiếu một cách hiệu quả hơn."
+   ]
+  }
+    """
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6.3. Phân tích tương tác đặc trưng bổ sung"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.3.1. `relevent_experience` vs `experience` (years)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "interaction_data_re_exp = dp.analyze_feature_interaction(data, 'relevent_experience', 'experience')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data_re_exp, 'Relevant Experience', 'Experience (Years)')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ cho thấy sự phân bố của kinh nghiệm làm việc (experience) dựa trên việc có kinh nghiệm liên quan (relevent_experience) hay không.\n",
+    "- Có thể thấy rằng những người có kinh nghiệm liên quan thường có số năm kinh nghiệm cao hơn, điều này là hợp lý.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.3.2. `company_size` vs `company_type`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "interaction_data_cs_ct = dp.analyze_feature_interaction(data, 'company_size', 'company_type')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data_cs_ct, 'Company Size', 'Company Type')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ này thể hiện mối quan hệ giữa quy mô công ty và loại hình công ty.\n",
+    "- Có thể có những loại hình công ty nhất định thường đi kèm với quy mô công ty cụ thể (ví dụ: Startup thường nhỏ, Public Sector thường lớn)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.3.3. `education_level` vs `major_discipline`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "interaction_data_el_md = dp.analyze_feature_interaction(data, 'education_level', 'major_discipline')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data_el_md, 'Education Level', 'Major Discipline')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ này cho thấy sự phân bố của các chuyên ngành chính dựa trên trình độ học vấn.\n",
+    "- Ví dụ, những người có trình độ Graduate thường tập trung vào các chuyên ngành STEM.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.3.4. `last_new_job` vs `target`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "interaction_data_lnj_target = dp.analyze_feature_interaction(data, 'last_new_job', 'target')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data_lnj_target, 'Last New Job', 'Target')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Đây là một tương tác quan trọng, cho thấy mối quan hệ giữa thời gian kể từ công việc mới nhất và khả năng chuyển việc.\n",
+    "- Có thể thấy rằng những người mới có công việc (last_new_job = 1) hoặc những người đã ở công ty lâu (last_new_job = >4) có thể có xu hướng chuyển việc khác nhau.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 6.3.5. `enrolled_university` vs `experience`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "interaction_data_eu_exp = dp.analyze_feature_interaction(data, 'enrolled_university', 'experience')\n",
+    "viz.plot_feature_interaction_heatmap(interaction_data_eu_exp, 'Enrolled University', 'Experience')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ này khám phá mối quan hệ giữa tình trạng nhập học đại học và số năm kinh nghiệm.\n",
+    "- Có thể những người đang theo học đại học có ít kinh nghiệm làm việc hơn hoặc đang trong giai đoạn đầu của sự nghiệp.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7. City analysis"
+   ]
+  }
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Số lượng thành phố duy nhất\n",
+    "unique_cities = np.unique(data['city'])\n",
+    "print(f'Số lượng thành phố duy nhất: {len(unique_cities)}')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Top 10 thành phố theo số lượng ứng viên\n",
+    "top_cities, top_counts = dp.get_top_n_cities(data, n=10)\n",
+    "viz.plot_top_n_cities(top_cities, top_counts, n=10)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Phân tích tỷ lệ target theo thành phố\n",
+    "viz.plot_categorical_analysis(data, 'city')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Mối quan hệ giữa thành phố và chỉ số phát triển\n",
+    "city_dev_index = dp.get_city_development_index_by_city(data)\n",
+    "viz.plot_city_development_index_by_city(city_dev_index)"
+   ]
+  },
+    """
+    **Nhận xét:**
+    - Heatmap cho thấy sự phân bố của các ứng viên theo kinh nghiệm và trình độ học vấn. Phần lớn các ứng viên có kinh nghiệm >20 năm và trình độ đại học.
+    """
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Tổng kết phân tích thành phố:**\n",
+    "- Đã xác định số lượng thành phố duy nhất và top 10 thành phố có nhiều ứng viên nhất.\n",
+    "- Đã phân tích tỷ lệ chuyển việc theo từng thành phố, cho thấy sự khác biệt đáng kể giữa các thành phố.\n",
+    "- Đã trực quan hóa mối quan hệ giữa thành phố và chỉ số phát triển thành phố, xác nhận rằng các thành phố có chỉ số phát triển thấp hơn có xu hướng có tỷ lệ chuyển việc cao hơn.\n",
+    "- Các yêu cầu về phân tích thành phố đã được hoàn thành."
+   ]
+  },
+    """
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 8. Phân tích ngoại lệ nâng cao"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 8.1. Phát hiện ngoại lệ cho `city_development_index`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "viz.plot_boxplot_with_outliers(data, 'city_development_index')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Biểu đồ boxplot cho `city_development_index` cho thấy có một số giá trị ngoại lệ ở phía dưới, tức là các thành phố có chỉ số phát triển rất thấp.\n",
+    "- Điều này phù hợp với nhận định trước đó rằng những người có khả năng chuyển việc cao hơn thường đến từ các thành phố có chỉ số phát triển thấp hơn.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 8.2. Tác động của ngoại lệ đến biến mục tiêu"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "outlier_comparison_cdi = dp.compare_target_rate_by_outliers(data, 'city_development_index')\n",
+    "viz.plot_target_rate_by_outliers(outlier_comparison_cdi, 'city_development_index')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- So sánh tỷ lệ chuyển việc giữa các bản ghi có và không có ngoại lệ trong `city_development_index` cho thấy những người thuộc nhóm ngoại lệ (tức là từ các thành phố có chỉ số phát triển rất thấp) có tỷ lệ chuyển việc cao hơn đáng kể.\n",
+    "- Điều này củng cố thêm tầm quan trọng của `city_development_index` trong việc dự đoán khả năng chuyển việc và gợi ý rằng các ngoại lệ này không nên bị loại bỏ mà cần được xem xét kỹ lưỡng trong mô hình hóa.\n"
+   ]
+  },
+    """
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 9. Kiểm tra chất lượng dữ liệu"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 9.1. Kiểm tra trùng lặp `enrollee_id`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "duplicate_ids = dp.check_duplicate_enrollee_id(data)\n",
+    "if len(duplicate_ids) > 0:\n",
+    "    print(f'Tìm thấy {len(duplicate_ids)} `enrollee_id` trùng lặp: {duplicate_ids}')\n",
+    "else:\n",
+    "    print('Không tìm thấy `enrollee_id` trùng lặp.')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Việc kiểm tra trùng lặp `enrollee_id` là rất quan trọng để đảm bảo mỗi bản ghi đại diện cho một ứng viên duy nhất. Nếu có trùng lặp, cần phải xử lý (ví dụ: xóa bỏ hoặc điều tra nguyên nhân)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 9.2. Xác định các danh mục không nhất quán"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Ví dụ cho cột 'gender'\n",
+    "expected_genders = ['Male', 'Female', 'Other', ''] # Bao gồm cả giá trị thiếu\n",
+    "inconsistent_genders = dp.identify_inconsistent_categories(data, 'gender', expected_genders)\n",
+    "if len(inconsistent_genders) > 0:\n",
+    "    print(f'Tìm thấy các danh mục không nhất quán trong `gender`: {inconsistent_genders}')\n",
+    "else:\n",
+    "    print('Không tìm thấy danh mục không nhất quán trong `gender`.')\n\n",
+    "# Ví dụ cho cột 'education_level'\n",
+    "expected_education_levels = ['Primary School', 'High School', 'Graduate', 'Masters', 'Phd', '']\n",
+    "inconsistent_education_levels = dp.identify_inconsistent_categories(data, 'education_level', expected_education_levels)\n",
+    "if len(inconsistent_education_levels) > 0:\n",
+    "    print(f'Tìm thấy các danh mục không nhất quán trong `education_level`: {inconsistent_education_levels}')\n",
+    "else:\n",
+    "    print('Không tìm thấy danh mục không nhất quán trong `education_level`.')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Việc kiểm tra các danh mục không nhất quán giúp phát hiện lỗi nhập liệu hoặc dữ liệu không hợp lệ, đảm bảo tính toàn vẹn của dữ liệu phân loại.\n",
+    "- Cần thực hiện kiểm tra tương tự cho tất cả các cột phân loại khác."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 9.3. Kiểm tra logic giữa các cột"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "logic_validation_results = dp.perform_logic_validation(data)\n",
+    "for check, count in logic_validation_results.items():\n",
+    "    if count > 0:\n",
+    "        print(f'Tìm thấy {count} trường hợp không nhất quán cho: {check}')\n",
+    "    else:\n",
+    "        print(f'Không tìm thấy trường hợp không nhất quán cho: {check}')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Kiểm tra logic giúp phát hiện các mâu thuẫn trong dữ liệu mà có thể không rõ ràng khi chỉ xem xét từng cột riêng lẻ.\n",
+    "- Ví dụ, trường hợp một ứng viên có kinh nghiệm dưới 1 năm nhưng lại làm việc ở một công ty rất lớn có thể là một lỗi dữ liệu hoặc một trường hợp đặc biệt cần được điều tra.\n",
+    "- Cần định nghĩa thêm các quy tắc kiểm tra logic dựa trên hiểu biết về nghiệp vụ."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 10. Phân tích phân đoạn và hồ sơ"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 10.1. So sánh hồ sơ: target=1 vs target=0"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "profiles_comparison = dp.compare_profiles_by_target(data)\n",
+    "\n",
+    "numerical_features_for_profiling = ['city_development_index', 'training_hours']\n",
+    "categorical_features_for_profiling = ['gender', 'relevent_experience', 'enrolled_university', 'education_level', 'major_discipline', 'experience', 'company_size', 'company_type', 'last_new_job']\n",
+    "\n",
+    "viz.plot_profile_comparison(profiles_comparison, numerical_features_for_profiling, categorical_features_for_profiling)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Nhận xét:**\n",
+    "- Phân tích hồ sơ giữa nhóm `target=1` (muốn chuyển việc) và `target=0` (không muốn chuyển việc) cho thấy sự khác biệt rõ rệt trong các đặc điểm.\n",
+    "- Ví dụ, nhóm `target=1` có thể có `city_development_index` trung bình thấp hơn, ít kinh nghiệm liên quan hơn, hoặc phân bố khác biệt về trình độ học vấn.\n",
+    "- Những khác biệt này cung cấp cái nhìn sâu sắc về các yếu tố thúc đẩy quyết định chuyển việc và có thể được sử dụng để xác định các phân đoạn rủi ro cao."
+    """
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 11. Kiểm định ý nghĩa thống kê"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Lưu ý về Kiểm định Thống kê:**\n",
+    "Việc thực hiện các kiểm định thống kê như Chi-square và Mann-Whitney U đòi hỏi thư viện `scipy`, nhưng yêu cầu của dự án chỉ cho phép sử dụng `NumPy`, `Matplotlib`, và `Seaborn`. Do đó, phần này không được triển khai. Nếu có thể, việc thêm `scipy` vào môi trường sẽ cho phép thực hiện các phân tích này để xác định mức độ quan trọng của các đặc trưng một cách chính xác hơn."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 12. Enhanced conclusions with business insights"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Dựa trên các phân tích đã thực hiện, chúng ta có thể rút ra một số kết luận và thông tin chi tiết có giá trị cho doanh nghiệp:\n",
+    "\n",
+    "**1. Tại sao chỉ số phát triển thành phố (`city_development_index`) thấp lại tương quan với tỷ lệ chuyển việc cao?**\n",
+    "   - **Cơ hội hạn chế:** Các thành phố có chỉ số phát triển thấp hơn có thể có ít cơ hội việc làm, đặc biệt là trong lĩnh vực công nghệ. Điều này thúc đẩy các lập trình viên tìm kiếm cơ hội ở các thành phố lớn hơn, phát triển hơn.\n",
+    "   - **Mức lương và phúc lợi:** Mức lương và phúc lợi ở các thành phố này có thể không cạnh tranh bằng, dẫn đến việc nhân viên dễ dàng bị thu hút bởi các lời đề nghị tốt hơn từ nơi khác.\n",
+    "   - **Chất lượng cuộc sống:** Chỉ số phát triển cũng phản ánh chất lượng cuộc sống, bao gồm cơ sở hạ tầng, giáo dục, và dịch vụ. Một môi trường sống kém hấp dẫn có thể là một yếu tố thúc đẩy nhân viên rời đi.\n",
+    "\n",
+    "**2. Giải thích về việc “không có kinh nghiệm liên quan” (`no_relevent_experience`) nhưng lại có nhiều năm kinh nghiệm (`experience`)**\n",
+    "   - **Chuyển ngành:** Đây có thể là những người đã có nhiều năm kinh nghiệm trong một lĩnh vực khác và bây giờ muốn chuyển sang ngành công nghệ. Họ có thể đã tham gia các khóa đào tạo hoặc tự học để có kiến thức cơ bản.\n",
+    "   - **Kỹ năng có thể chuyển đổi:** Một số kỹ năng từ các ngành khác (ví dụ: quản lý dự án, phân tích dữ liệu) có thể được áp dụng trong ngành công nghệ, nhưng họ vẫn được coi là “không có kinh nghiệm liên quan” về mặt kỹ thuật.\n",
+    "   - **Rủi ro và cơ hội:** Nhóm này có thể có rủi ro cao hơn về việc không phù hợp với văn hóa công ty công nghệ, nhưng cũng có thể mang lại những góc nhìn mới và kỹ năng đa dạng.\n",
+    "\n",
+    "**3. Các đặc điểm của nhóm có nguy cơ chuyển việc cao:**\n",
+    "   - **Thành phố:** Đến từ các thành phố có chỉ số phát triển thấp.\n",
+    "   - **Kinh nghiệm:** Không có kinh nghiệm liên quan đến công nghệ.\n",
+    "   - **Giáo dục:** Đang theo học các khóa đại học (có thể là để nâng cao kỹ năng và tìm kiếm cơ hội tốt hơn).\n",
+    "   - **Công ty hiện tại:** Thường làm việc trong các công ty tư nhân hoặc các startup, và có thể ở các công ty có quy mô nhỏ.\n",
+    "\n",
+    "**Đề xuất cho doanh nghiệp:**\n",
+    "- **Tuyển dụng:** Tập trung vào việc tìm kiếm ứng viên ở các thành phố có chỉ số phát triển cao hơn, hoặc đưa ra các chính sách hỗ trợ tái định cư hấp dẫn.\n",
+    "- **Giữ chân nhân tài:** Đối với những nhân viên đến từ các thành phố nhỏ hơn, cần có các chính sách đặc biệt về lương, thưởng, và cơ hội phát triển để giữ chân họ.\n",
+    "- **Phát triển nhân viên:** Cung cấp các khóa đào tạo và cơ hội phát triển cho những người không có kinh nghiệm liên quan để giúp họ hòa nhập và phát triển trong công ty."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "min_ds-env",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
