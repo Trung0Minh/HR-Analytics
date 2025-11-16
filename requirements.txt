@@ -1,0 +1,4 @@
+seaborn==0.13.2
+numpy==1.26.0
+matplotl.ib==3.8.0
+ipykernel==6.30.1.

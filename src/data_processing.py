@@ -25,45 +25,62 @@ def get_basic_info(data):
         dict: Một từ điển chứa thông tin cơ bản.
     """
     info = {
-        'shape': data.shape,
+        'shape': (data.shape[0], len(data.dtype.names)),
         'columns': data.dtype.names,
         'dtypes': {name: data.dtype[name] for name in data.dtype.names},
         'memory_usage': data.nbytes
     }
     return info
 
-def get_statistical_summary(data, column_name):
+def check_duplicates(data):
     """
-    Lấy tóm tắt thống kê cho một cột cụ thể.
-
+    Checks for, counts, and returns representative duplicated rows 
+    in a NumPy structured array, excluding 'enrollee_id'.
+    
     Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        column_name (str): Tên của cột cần phân tích.
-
+        data (np.ndarray): NumPy structured array.
+        
     Returns:
-        dict: Một từ điển chứa tóm tắt thống kê.
+        dict: A dictionary containing counts and representative data of duplicated rows.
     """
-    column = data[column_name]
-    if np.issubdtype(column.dtype, np.number):
-        # Xử lý cho cột số
-        summary = {
-            'min': np.nanmin(column),
-            'max': np.nanmax(column),
-            'mean': np.nanmean(column),
-            'median': np.nanmedian(column),
-            'std': np.nanstd(column),
-            'quartiles': np.nanpercentile(column, [25, 50, 75])
-        }
-    else:
-        # Xử lý cho cột phân loại
-        unique_values, counts = np.unique(column, return_counts=True)
-        most_frequent_index = np.argmax(counts)
-        summary = {
-            'unique_count': len(unique_values),
-            'most_frequent': unique_values[most_frequent_index],
-            'frequency': counts[most_frequent_index]
-        }
-    return summary
+    from collections import Counter
+
+    # Define columns to check for duplicates, excluding the ID
+    cols_to_check = [name for name in data.dtype.names if name != 'enrollee_id']
+    
+    # Create a new view of the array with only the columns to be checked
+    data_subset = data[cols_to_check]
+
+    # Convert each row to a tuple to make them hashable
+    rows_as_tuples = [tuple(row) for row in data_subset]
+    
+    # Count occurrences of each unique row tuple
+    row_counts = Counter(rows_as_tuples)
+    
+    # Filter for row tuples that appear more than once
+    duplicated_row_counts = {item: count for item, count in row_counts.items() if count > 1}
+    
+    # The total number of "extra" rows (duplicates)
+    num_duplicates = sum(count - 1 for count in duplicated_row_counts.values())
+    total_rows = len(rows_as_tuples)
+    
+    # Get a single representative row for each group of duplicates
+    representatives = []
+    found_tuples = set()
+    for i, row_tuple in enumerate(rows_as_tuples):
+        # Check if this row is a duplicate and we haven't processed this group yet
+        if row_tuple in duplicated_row_counts and row_tuple not in found_tuples:
+            original_row = data[i]
+            count = duplicated_row_counts[row_tuple]
+            representatives.append({'row': original_row, 'count': count})
+            found_tuples.add(row_tuple)
+
+    return {
+        'total_rows': total_rows,
+        'duplicated_rows': num_duplicates,
+        'duplicated_percentage': (num_duplicates / total_rows) * 100 if total_rows > 0 else 0,
+        'representative_duplicates': representatives
+    }
 
 def get_missing_summary(data):
     """
@@ -90,36 +107,6 @@ def get_missing_summary(data):
     # Sắp xếp theo tỷ lệ thiếu giảm dần
     sorted_missing = sorted(missing_summary.items(), key=lambda item: item[1]['missing_percentage'], reverse=True)
     return dict(sorted_missing)
-
-def analyze_missing_patterns(data):
-    """
-    Phân tích các mẫu giá trị bị thiếu trong tập dữ liệu.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-
-    Returns:
-        np.ndarray: Một ma trận boolean biểu thị các giá trị bị thiếu.
-                    Kích thước: (số dòng, số cột)
-    """
-    n_rows = len(data)
-    n_cols = len(data.dtype.names)
-    missing_matrix = np.zeros((n_rows, n_cols), dtype=bool)
-
-    for i, name in enumerate(data.dtype.names):
-        column = data[name]
-
-        # Chuyển column sang numpy array 1D kiểu object để tránh tuple/list lồng nhau
-        column = np.array(column, dtype=object)
-
-        # Cột số: kiểm tra NaN
-        if np.issubdtype(column.dtype, np.number):
-            missing_matrix[:, i] = np.isnan(column)
-        else:
-            # Cột string: kiểm tra '' hoặc None
-            missing_matrix[:, i] = np.vectorize(lambda x: x is None or x == '')(column)
-
-    return missing_matrix
 
 def get_target_distribution(data, target_column='target'):
     """
@@ -167,33 +154,6 @@ def get_categorical_distribution(data, column_name):
     }
     return distribution
 
-def get_numerical_distribution(data, column_name):
-    """
-    Lấy phân phối của một đặc trưng số.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        column_name (str): Tên của cột số.
-
-    Returns:
-        dict: Một từ điển chứa thống kê phân phối và thông tin về ngoại lệ.
-    """
-    column = data[column_name]
-    # Loại bỏ các giá trị nan
-    column = column[~np.isnan(column)]
-    q1, q3 = np.percentile(column, [25, 75])
-    iqr = q3 - q1
-    lower_bound = q1 - (1.5 * iqr)
-    upper_bound = q3 + (1.5 * iqr)
-    outliers = column[(column < lower_bound) | (column > upper_bound)]
-    hist, bins = np.histogram(column, bins='auto')
-    distribution = {
-        'statistics': get_statistical_summary(data, column_name),
-        'outliers': outliers,
-        'histogram': (hist, bins)
-    }
-    return distribution
-
 def calculate_target_rate_by_category(data, categorical_column, target_column='target'):
     """
     Tính tỷ lệ mục tiêu cho mỗi loại của một đặc trưng phân loại.
@@ -217,160 +177,6 @@ def calculate_target_rate_by_category(data, categorical_column, target_column='t
             'count': len(target_for_category)
         }
     return rates
-
-def get_correlation_with_target(data, numerical_columns, target_column='target'):
-    """
-    Tính toán tương quan giữa các đặc trưng số và biến mục tiêu.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        numerical_columns (list): Danh sách các tên cột số.
-        target_column (str): Tên của cột mục tiêu.
-
-    Returns:
-        dict: Một từ điển chứa các tương quan.
-    """
-    correlations = {}
-    target = data[target_column]
-    for name in numerical_columns:
-        # Bỏ qua các giá trị nan trong cả hai cột
-        valid_mask = ~np.isnan(data[name]) & ~np.isnan(target)
-        correlations[name] = np.corrcoef(data[name][valid_mask], target[valid_mask])[0, 1]
-    return correlations
-
-def analyze_feature_interaction(data, feature1, feature2):
-    """
-    Phân tích tương tác giữa hai đặc trưng.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        feature1 (str): Tên của đặc trưng thứ nhất.
-        feature2 (str): Tên của đặc trưng thứ hai.
-
-    Returns:
-        np.ndarray: Một bảng chéo (cross-tabulation) thể hiện tương tác.
-    """
-    unique_f1 = np.unique(data[feature1])
-    unique_f2 = np.unique(data[feature2])
-    crosstab = np.zeros((len(unique_f1), len(unique_f2)), dtype=int)
-    for i, val1 in enumerate(unique_f1):
-        for j, val2 in enumerate(unique_f2):
-            mask = (data[feature1] == val1) & (data[feature2] == val2)
-            crosstab[i, j] = np.sum(mask)
-    return crosstab
-
-def impute_missing_values(data, column_name, strategy='mean'):
-    """
-    Điền các giá trị bị thiếu trong một cột.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        column_name (str): Tên của cột cần xử lý.
-        strategy (str): Chiến lược điền ('mean', 'median', 'mode').
-
-    Returns:
-        np.ndarray: Dữ liệu đã được điền.
-    """
-    column = data[column_name]
-    if np.issubdtype(column.dtype, np.number):
-        if strategy == 'mean':
-            fill_value = np.nanmean(column)
-        elif strategy == 'median':
-            fill_value = np.nanmedian(column)
-        else:
-            fill_value = 0 # Mặc định
-        column[np.isnan(column)] = fill_value
-    else:
-        if strategy == 'mode':
-            unique, counts = np.unique(column, return_counts=True)
-            fill_value = unique[np.argmax(counts)]
-        else:
-            fill_value = 'Unknown' # Mặc định
-        column[column == ''] = fill_value
-    return data
-
-def one_hot_encode(data, column_name):
-    """
-    Thực hiện mã hóa one-hot cho một cột phân loại.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        column_name (str): Tên của cột cần mã hóa.
-
-    Returns:
-        np.ndarray: Dữ liệu đã được mã hóa.
-    """
-    column = data[column_name]
-    unique_values = np.unique(column)
-    new_cols = []
-    for value in unique_values:
-        new_col_name = f'{column_name}_{value}'
-        new_col_data = (column == value).astype(int)
-        new_cols.append((new_col_name, new_col_data))
-    
-    # Xóa cột cũ và thêm các cột mới
-    new_dtype = data.dtype.descr
-    new_dtype = [dt for dt in new_dtype if dt[0] != column_name]
-    for new_col_name, _ in new_cols:
-        new_dtype.append((new_col_name, 'i4'))
-        
-    new_data = np.empty(data.shape, dtype=new_dtype)
-    for name in new_data.dtype.names:
-        if name in data.dtype.names:
-            new_data[name] = data[name]
-        else:
-            for new_col_name, new_col_data in new_cols:
-                if name == new_col_name:
-                    new_data[name] = new_col_data
-                    break
-    return new_data
-
-def get_top_n_cities(data, n=10):
-    """
-    Lấy top N thành phố có số lượng ứng viên cao nhất.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        n (int): Số lượng thành phố hàng đầu cần lấy.
-
-    Returns:
-        tuple: Một tuple chứa hai danh sách: tên thành phố và số lượng ứng viên.
-    """
-    city_dist = get_categorical_distribution(data, 'city')
-    return city_dist['categories'][:n], city_dist['counts'][:n]
-
-def get_city_development_index_by_city(data):
-    """
-    Lấy chỉ số phát triển thành phố cho mỗi thành phố.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-
-    Returns:
-        dict: Một từ điển với các thành phố làm khóa và chỉ số phát triển làm giá trị.
-    """
-    city_dev_index = {}
-    unique_cities = np.unique(data['city'])
-    for city in unique_cities:
-        indices = data['city_development_index'][data['city'] == city]
-        if len(indices) > 0:
-            # Giả sử chỉ số phát triển là nhất quán cho mỗi thành phố
-            city_dev_index[city] = indices[0]
-    return city_dev_index
-
-def get_missing_value_correlation(data):
-    """
-    Phân tích tương quan của các giá trị bị thiếu giữa các cột.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-
-    Returns:
-        np.ndarray: Ma trận tương quan của các giá trị bị thiếu.
-    """
-    missing_matrix = analyze_missing_patterns(data).astype(int)
-    correlation_matrix = np.corrcoef(missing_matrix, rowvar=False)
-    return correlation_matrix
 
 def compare_target_rate_by_missing(data, column_name, target_column='target'):
     """
@@ -407,233 +213,87 @@ def compare_target_rate_by_missing(data, column_name, target_column='target'):
         'not_missing': {'target_rate': target_rate_not_missing, 'count': count_not_missing}
     }
 
-def analyze_categorical_missing(data, categorical_columns):
+def get_numerical_summary(data, numerical_cols):
     """
-    Phân tích các giá trị bị thiếu trong các cột phân loại được chỉ định.
+    Tính toán thống kê mô tả cho các cột số được chỉ định.
 
     Args:
         data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        categorical_columns (list): Danh sách các tên cột phân loại cần phân tích.
+        numerical_cols (list): Danh sách các tên cột số.
 
     Returns:
-        dict: Một từ điển chứa thông tin về giá trị thiếu cho mỗi cột.
-              Mỗi cột sẽ có một từ điển con với 'missing_count' và 'missing_percentage'.
+        dict: Một từ điển chứa thống kê mô tả cho mỗi cột.
     """
-    missing_info = {}
-    total_rows = len(data)
-    for col_name in categorical_columns:
-        column = data[col_name]
-        # Đối với các cột string, giá trị thiếu thường là rỗng ('') hoặc None
-        missing_count = np.sum(np.vectorize(lambda x: x is None or x == '')(column))
-        missing_percentage = (missing_count / total_rows) * 100
-        missing_info[col_name] = {
-            'missing_count': missing_count,
-            'missing_percentage': missing_percentage
+    summary = {}
+    for col in numerical_cols:
+        col_data = data[col][~np.isnan(data[col])]  # Loại bỏ NaN
+        if col_data.size == 0:
+            summary[col] = {
+                'mean': np.nan, 'median': np.nan, 'std': np.nan,
+                'min': np.nan, 'max': np.nan, '25%': np.nan,
+                '50%': np.nan, '75%': np.nan
+            }
+            continue
+        summary[col] = {
+            'count': len(col_data),
+            'mean': np.mean(col_data),
+            'std': np.std(col_data),
+            'min': np.min(col_data),
+            '25%': np.percentile(col_data, 25),
+            '50%': np.median(col_data),
+            '75%': np.percentile(col_data, 75),
+            'max': np.max(col_data)
         }
-    return missing_info
+    return summary
 
-def compare_target_rate_by_outliers(data, numerical_column, target_column='target'):
+def count_row_completeness(data):
     """
-    So sánh tỷ lệ mục tiêu giữa các bản ghi có và không có giá trị ngoại lệ trong một cột số cụ thể.
+    Counts the number of completely full rows and completely empty rows.
 
     Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        numerical_column (str): Tên của cột số cần phân tích ngoại lệ.
-        target_column (str): Tên của cột mục tiêu.
+        data (np.ndarray): NumPy structured array.
 
     Returns:
-        dict: Một từ điển chứa tỷ lệ mục tiêu cho các bản ghi có và không có ngoại lệ.
+        dict: A dictionary with counts of complete, empty, and partial rows.
     """
-    column = data[numerical_column]
-    target = data[target_column]
-
-    # Loại bỏ các giá trị NaN để tính toán IQR
-    column_no_nan = column[~np.isnan(column)]
-
-    if len(column_no_nan) == 0:
-        return {
-            'outliers': {'target_rate': np.nan, 'count': 0},
-            'not_outliers': {'target_rate': np.nan, 'count': 0}
-        }
-
-    q1, q3 = np.percentile(column_no_nan, [25, 75])
-    iqr = q3 - q1
-    lower_bound = q1 - (1.5 * iqr)
-    upper_bound = q3 + (1.5 * iqr)
-
-    # Xác định các bản ghi là ngoại lệ
-    outlier_mask = (column < lower_bound) | (column > upper_bound)
-
-    # Bản ghi có ngoại lệ
-    target_outliers = target[outlier_mask]
-    target_rate_outliers = np.nanmean(target_outliers) if len(target_outliers) > 0 else np.nan
-    count_outliers = len(target_outliers)
-
-    # Bản ghi không có ngoại lệ
-    target_not_outliers = target[~outlier_mask]
-    target_rate_not_outliers = np.nanmean(target_not_outliers) if len(target_not_outliers) > 0 else np.nan
-    count_not_outliers = len(target_not_outliers)
-
-    return {
-        'outliers': {'target_rate': target_rate_outliers, 'count': count_outliers},
-        'not_outliers': {'target_rate': target_rate_not_outliers, 'count': count_not_outliers}
-    }
-
-def check_duplicate_enrollee_id(data):
-    """
-    Kiểm tra các giá trị trùng lặp trong cột 'enrollee_id'.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-
-    Returns:
-        np.ndarray: Mảng chứa các enrollee_id bị trùng lặp.
-    """
-    unique_ids, counts = np.unique(data['enrollee_id'], return_counts=True)
-    duplicate_ids = unique_ids[counts > 1]
-    return duplicate_ids
-
-def identify_inconsistent_categories(data, column_name, expected_categories):
-    """
-    Xác định các danh mục không nhất quán trong một cột phân loại.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        column_name (str): Tên của cột phân loại cần kiểm tra.
-        expected_categories (list): Danh sách các danh mục dự kiến.
-
-    Returns:
-        np.ndarray: Mảng chứa các danh mục không nhất quán.
-    """
-    actual_categories = np.unique(data[column_name])
-    inconsistent_categories = [cat for cat in actual_categories if cat not in expected_categories]
-    return np.array(inconsistent_categories)
-
-def perform_logic_validation(data):
-    """
-    Thực hiện kiểm tra logic cho các mối quan hệ giữa các cột.
-    Ví dụ: kinh nghiệm "<1" nhưng company_size lớn.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-
-    Returns:
-        dict: Một từ điển chứa các kết quả kiểm tra logic.
-    """
-    validation_results = {}
-
-    # Logic check: experience="<1" but large company_size
-    # Giả định company_size lớn là > 10000
-    # Cần chuyển đổi company_size sang dạng số để so sánh
-    # Đối với mục đích ví dụ, chúng ta sẽ kiểm tra các giá trị string của company_size
-    # và experience
-
-    # Chuyển đổi experience sang thứ tự để so sánh
-    experience_mapping = {'<1': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14, '15': 15, '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '>20': 21}
-    # Tạo một mảng số từ cột experience
-    experience_numeric = np.array([experience_mapping.get(exp, -1) for exp in data['experience']])
-
-    # Giả định company_size lớn là '50000-99999' hoặc '100000+'
-    large_company_sizes = ['50000-99999', '100000+']
-
-    inconsistent_experience_company_size_mask = (
-        (experience_numeric == experience_mapping['<1']) &
-        np.isin(data['company_size'], large_company_sizes)
-    )
-    validation_results['inconsistent_experience_company_size'] = np.sum(inconsistent_experience_company_size_mask)
-
-    return validation_results
-
-def compare_profiles_by_target(data, target_column='target'):
-    """
-    So sánh hồ sơ của các nhóm target=1 và target=0.
-    Tính toán thống kê mô tả cho các đặc trưng số và phân phối cho các đặc trưng phân loại.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        target_column (str): Tên của cột mục tiêu.
-
-    Returns:
-        dict: Một từ điển chứa thông tin hồ sơ cho mỗi nhóm target.
-    """
-    profiles = {
-        0: {'numerical_summary': {}, 'categorical_distribution': {}},
-        1: {'numerical_summary': {}, 'categorical_distribution': {}}
-    }
-
-    for target_value in [0, 1]:
-        target_mask = data[target_column] == target_value
-        subset_data = data[target_mask]
-
-        for col_name in data.dtype.names:
-            if col_name == target_column or col_name == 'enrollee_id':
-                continue
-
-            column = subset_data[col_name]
-
-            if np.issubdtype(column.dtype, np.number):
-                # Numerical features: mean, median, std
-                profiles[target_value]['numerical_summary'][col_name] = {
-                    'mean': np.nanmean(column),
-                    'median': np.nanmedian(column),
-                    'std': np.nanstd(column)
-                }
-            else:
-                # Categorical features: distribution
-                unique, counts = np.unique(column, return_counts=True)
-                total = len(column)
-                distribution = {u: (c / total) * 100 for u, c in zip(unique, counts)}
-                profiles[target_value]['categorical_distribution'][col_name] = distribution
-
-    return profiles
-
-def rank_features_by_p_value(p_values):
-    """
-    Xếp hạng các đặc trưng dựa trên p-value (thấp hơn là quan trọng hơn).
-
-    Args:
-        p_values (dict): Một từ điển với tên đặc trưng là khóa và p-value là giá trị.
-
-    Returns:
-        list: Danh sách các tuple (tên đặc trưng, p-value) được sắp xếp theo p-value tăng dần.
-    """
-    sorted_features = sorted(p_values.items(), key=lambda item: item[1])
-    return sorted_features
-
-def analyze_multi_column_missing_patterns(data, columns_to_check):
-    """
-    Phân tích các mẫu thiếu đa cột để xác định các kết hợp cột thường bị thiếu cùng nhau.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        columns_to_check (list): Danh sách các cột để kiểm tra mẫu thiếu.
-
-    Returns:
-        dict: Một từ điển trong đó các khóa là các bộ tên cột bị thiếu 
-              và các giá trị là số lượng bản ghi có mẫu thiếu đó.
-    """
-    missing_patterns = {}
+    n_rows = data.shape[0]
     
-    # Tạo một ma trận boolean cho các cột được chỉ định
-    missing_matrix = np.zeros((len(data), len(columns_to_check)), dtype=bool)
-    for i, col_name in enumerate(columns_to_check):
-        column = data[col_name]
-        if np.issubdtype(column.dtype, np.number):
-            missing_matrix[:, i] = np.isnan(column)
-        else:
-            missing_matrix[:, i] = np.vectorize(lambda x: x is None or x == '')(column)
+    complete_rows_count = 0
+    empty_rows_count = 0
+    
+    # Check all columns except the ID for emptiness/completeness
+    cols_to_check = [name for name in data.dtype.names if name != 'enrollee_id']
+    
+    for i in range(n_rows):
+        is_complete = True
+        is_empty = True
+        
+        for name in cols_to_check:
+            field = data[i][name]
             
-    # Lặp qua từng hàng để xác định các mẫu thiếu
-    for row in missing_matrix:
-        missing_cols_indices = np.where(row)[0]
-        if len(missing_cols_indices) > 1: # Chỉ quan tâm đến các mẫu thiếu đa cột
-            missing_cols = tuple(columns_to_check[i] for i in missing_cols_indices)
-            if missing_cols in missing_patterns:
-                missing_patterns[missing_cols] += 1
+            field_is_missing = False
+            if np.issubdtype(data.dtype[name], np.number):
+                if np.isnan(field):
+                    field_is_missing = True
             else:
-                missing_patterns[missing_cols] = 1
-                
-    # Sắp xếp các mẫu theo số lượng giảm dần
-    sorted_patterns = sorted(missing_patterns.items(), key=lambda item: item[1], reverse=True)
+                if field == '':
+                    field_is_missing = True
+
+            if field_is_missing:
+                is_complete = False # At least one field is missing, so not complete
+            else:
+                is_empty = False # At least one field is not missing, so not empty
+        
+        if is_complete:
+            complete_rows_count += 1
+        if is_empty:
+            empty_rows_count += 1
+            
+    partial_rows_count = n_rows - complete_rows_count - empty_rows_count
     
-    return dict(sorted_patterns)
+    return {
+        'total_rows': n_rows,
+        'complete_rows': complete_rows_count,
+        'empty_rows': empty_rows_count,
+        'partial_rows': partial_rows_count
+    }
