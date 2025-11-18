@@ -64,64 +64,6 @@ def plot_target_distribution(target_counts, target_percentages):
 
     plt.show()
 
-def plot_numerical_vs_target(data, numerical_column, target_column='target'):
-    """
-    Tạo biểu đồ boxplot hoặc violin plot cho đặc trưng số so với mục tiêu.
-
-    Args:
-        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
-        numerical_column (str): Tên của cột số.
-        target_column (str): Tên của cột mục tiêu.
-    """
-    # Convert to a dictionary that seaborn can understand
-    plot_data = {
-        numerical_column: data[numerical_column],
-        target_column: data[target_column]
-    }
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(x=target_column, y=numerical_column, data=plot_data)
-    plt.title(f'{numerical_column} vs {target_column}', fontsize=16)
-    plt.xlabel(target_column, fontsize=12)
-    plt.ylabel(numerical_column, fontsize=12)
-    plt.show()
-
-def plot_target_rate_by_missing(missing_comparison_data, column_name):
-    """
-    Tạo biểu đồ cột so sánh tỷ lệ mục tiêu cho các bản ghi có và không có giá trị thiếu.
-
-    Args:
-        missing_comparison_data (dict): Dữ liệu so sánh giá trị thiếu (output từ dp.compare_target_rate_by_missing).
-        column_name (str): Tên của cột được phân tích.
-    """
-    labels = ['Có giá trị thiếu', 'Không có giá trị thiếu']
-    target_rates = [missing_comparison_data['missing']['target_rate'],
-                    missing_comparison_data['not_missing']['target_rate']]
-    counts = [missing_comparison_data['missing']['count'],
-              missing_comparison_data['not_missing']['count']]
-
-    # Loại bỏ các giá trị NaN nếu không có dữ liệu
-    valid_indices = ~np.isnan(target_rates)
-    labels = np.array(labels)[valid_indices]
-    target_rates = np.array(target_rates)[valid_indices]
-    counts = np.array(counts)[valid_indices]
-
-    if len(labels) == 0:
-        print(f"Không có đủ dữ liệu để so sánh tỷ lệ mục tiêu cho cột {column_name}.")
-        return
-
-    plt.figure(figsize=(8, 6))
-    ax = sns.barplot(x=labels, y=target_rates)
-    plt.title(f'Tỷ lệ Target=1 khi có/không có giá trị thiếu trong {column_name}', fontsize=14)
-    plt.xlabel('Trạng thái giá trị thiếu', fontsize=12)
-    plt.ylabel('Tỷ lệ Target=1', fontsize=12)
-    plt.ylim(0, max(target_rates) * 1.2 if len(target_rates) > 0 else 0.5) # Đảm bảo trục y bắt đầu từ 0 và có khoảng trống
-
-    for i, rate in enumerate(target_rates):
-        ax.text(i, rate + 0.01, f'{rate:.2f} (n={counts[i]})', ha='center', va='bottom', fontsize=10)
-
-    plt.tight_layout()
-    plt.show()
-
 def plot_numerical_distribution_and_boxplot(data, column_name):
     """
     Trực quan hóa phân phối của một biến số bằng histogram và box plot.
@@ -164,17 +106,16 @@ def plot_scaling_comparison(data, col1, col2):
     plt.grid(True)
     plt.show()
 
-def plot_categorical_analysis(data, column_name, target_column='target', top_n=15):
+def plot_categorical_analysis(data, column_name, target_column='target'):
     """
     Tạo hai biểu đồ cho một đặc trưng phân loại:
-    1. Biểu đồ cột thể hiện phân phối của đặc trưng (top N).
-    2. Biểu đồ cột thể hiện tỷ lệ mục tiêu theo từng loại của đặc trưng (top N).
+    1. Biểu đồ cột thể hiện phân phối của đặc trưng.
+    2. Biểu đồ cột thể hiện tỷ lệ mục tiêu theo từng loại của đặc trưng.
 
     Args:
         data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
         column_name (str): Tên của cột phân loại.
         target_column (str): Tên của cột mục tiêu.
-        top_n (int): Số lượng các loại hàng đầu để hiển thị.
     """
     # Lấy phân phối của đặc trưng
     dist = dp.get_categorical_distribution(data, column_name)
@@ -182,19 +123,23 @@ def plot_categorical_analysis(data, column_name, target_column='target', top_n=1
     # Lấy tỷ lệ target theo đặc trưng
     target_rate = dp.calculate_target_rate_by_category(data, column_name, target_column)
     
-    # Giới hạn ở top N
-    categories_to_plot = dist['categories'][:top_n]
-    counts_to_plot = dist['counts'][:top_n]
+    # Lấy tất cả các danh mục
+    categories_to_plot = dist['categories']
+    counts_to_plot = dist['counts']
     
     # Sắp xếp rates và counts từ target_rate theo thứ tự của categories_to_plot
     ordered_rates = [target_rate[cat]['target_rate'] for cat in categories_to_plot]
     ordered_counts = [target_rate[cat]['count'] for cat in categories_to_plot]
 
-    fig, axes = plt.subplots(1, 2, figsize=(18, max(6, top_n * 0.4)))
+    # Tạo một bảng màu nhất quán cho các danh mục
+    palette = sns.color_palette('viridis', len(categories_to_plot))
+    color_map = {cat: color for cat, color in zip(categories_to_plot, palette)}
+
+    fig, axes = plt.subplots(1, 2, figsize=(18, max(6, len(categories_to_plot) * 0.4)))
 
     # Biểu đồ 1: Phân phối của đặc trưng
-    sns.barplot(x=counts_to_plot, y=categories_to_plot, ax=axes[0], orient='h', hue=categories_to_plot, legend=False, palette='viridis')
-    axes[0].set_title(f'Phân phối của {column_name} (Top {top_n})', fontsize=14)
+    sns.barplot(x=counts_to_plot, y=categories_to_plot, ax=axes[0], orient='h', hue=categories_to_plot, palette=color_map, legend=False)
+    axes[0].set_title(f'Phân phối của {column_name}', fontsize=14)
     axes[0].set_xlabel('Số lượng', fontsize=12)
     axes[0].set_ylabel(column_name, fontsize=12)
     for i, v in enumerate(counts_to_plot):
@@ -207,8 +152,8 @@ def plot_categorical_analysis(data, column_name, target_column='target', top_n=1
     sorted_rates = [ordered_rates[i] for i in sorted_indices]
     sorted_counts = [ordered_counts[i] for i in sorted_indices]
 
-    sns.barplot(x=sorted_rates, y=sorted_categories, ax=axes[1], orient='h', hue=sorted_categories, legend=False, palette='plasma')
-    axes[1].set_title(f'Tỷ lệ Target=1 theo {column_name} (Top {top_n})', fontsize=14)
+    sns.barplot(x=sorted_rates, y=sorted_categories, ax=axes[1], orient='h', hue=sorted_categories, palette=color_map, legend=False)
+    axes[1].set_title(f'Tỷ lệ Target=1 theo {column_name}', fontsize=14)
     axes[1].set_xlabel('Tỷ lệ Target=1', fontsize=12)
     axes[1].set_ylabel('')
     axes[1].axvline(x=np.nanmean(data[target_column]), color='r', linestyle='--', label='Tỷ lệ Target trung bình')
@@ -218,35 +163,6 @@ def plot_categorical_analysis(data, column_name, target_column='target', top_n=1
         axes[1].text(rate, i, f' {rate:.2f} (n={count})', color='black', va='center')
 
     plt.tight_layout()
-    plt.show()
-
-def plot_missing_value_heatmap(data):
-    """
-    Creates a heatmap to visualize the pattern of missing values using NumPy.
-    
-    Args:
-        data (np.ndarray): NumPy structured array.
-    """
-    # Create a boolean matrix for missing values
-    missing_matrix = []
-    for name in data.dtype.names:
-        column = data[name]
-        if np.issubdtype(column.dtype, np.number):
-            missing_matrix.append(np.isnan(column))
-        else:
-            # For string types, an empty string denotes missing
-            missing_matrix.append(column == '')
-            
-    # Transpose to have columns as x-axis and rows as y-axis
-    missing_matrix = np.array(missing_matrix).T
-    
-    plt.figure(figsize=(15, 10))
-    sns.heatmap(missing_matrix, cbar=False, cmap='viridis', yticklabels=False)
-    plt.title('Heatmap của các giá trị thiếu', fontsize=16)
-    plt.xlabel('Cột', fontsize=12)
-    plt.ylabel(f'Dòng dữ liệu (tổng số {data.shape[0]})', fontsize=12)
-    # Set x-axis labels to column names
-    plt.xticks(ticks=np.arange(len(data.dtype.names)) + 0.5, labels=data.dtype.names, rotation=90)
     plt.show()
 
 def plot_correlation_heatmap(data, numerical_cols):
@@ -274,4 +190,109 @@ def plot_correlation_heatmap(data, numerical_cols):
     sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=.5,
                 xticklabels=numerical_cols, yticklabels=numerical_cols)
     plt.title('Heatmap tương quan giữa các biến số', fontsize=16)
+    plt.show()
+
+def plot_target_rate_by_missing_grid(data, columns_to_compare):
+    """
+    Tạo một lưới biểu đồ cột so sánh tỷ lệ mục tiêu cho các bản ghi có và không có giá trị thiếu.
+
+    Args:
+        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
+        columns_to_compare (list): Danh sách các cột để phân tích.
+    """
+    num_plots = len(columns_to_compare)
+    if num_plots == 0:
+        print("Không có cột nào để hiển thị.")
+        return
+
+    # Xác định kích thước lưới
+    cols = 3  # Số cột trong lưới
+    rows = (num_plots + cols - 1) // cols  # Tính số hàng cần thiết
+
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 6, rows * 5), squeeze=False)
+    axes = axes.flatten() # Làm phẳng mảng axes để dễ dàng lặp
+
+    for i, col_name in enumerate(columns_to_compare):
+        ax = axes[i]
+        missing_comparison_data = dp.compare_target_rate_by_missing(data, col_name)
+
+        labels = ['Có giá trị thiếu', 'Không có giá trị thiếu']
+        target_rates = [missing_comparison_data['missing']['target_rate'],
+                        missing_comparison_data['not_missing']['target_rate']]
+        counts = [missing_comparison_data['missing']['count'],
+                  missing_comparison_data['not_missing']['count']]
+
+        # Loại bỏ các giá trị NaN nếu không có dữ liệu
+        valid_indices = ~np.isnan(target_rates)
+        valid_labels = np.array(labels)[valid_indices]
+        valid_target_rates = np.array(target_rates)[valid_indices]
+        valid_counts = np.array(counts)[valid_indices]
+
+        if len(valid_labels) == 0:
+            ax.set_title(f'{col_name}\n(Không có dữ liệu)')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            continue
+
+        sns.barplot(x=valid_labels, y=valid_target_rates, ax=ax)
+        ax.set_title(f'Tỷ lệ Target=1 trong {col_name}', fontsize=12)
+        ax.set_xlabel('Trạng thái giá trị thiếu', fontsize=10)
+        ax.set_ylabel('Tỷ lệ Target=1', fontsize=10)
+        
+        # Đảm bảo trục y bắt đầu từ 0 và có khoảng trống
+        if len(valid_target_rates) > 0:
+            ax.set_ylim(0, max(valid_target_rates) * 1.2)
+        else:
+            ax.set_ylim(0, 0.5)
+
+        for j, rate in enumerate(valid_target_rates):
+            ax.text(j, rate + 0.01, f'{rate:.2f}\n(n={valid_counts[j]})', ha='center', va='bottom', fontsize=9)
+
+    # Ẩn các subplot không sử dụng
+    for i in range(num_plots, len(axes)):
+        fig.delaxes(axes[i])
+
+    plt.tight_layout(pad=3.0)
+    plt.show()
+
+def plot_numerical_vs_target_grid(data, numerical_columns, target_column='target'):
+    """
+    Tạo một lưới các biểu đồ boxplot cho các đặc trưng số so với mục tiêu.
+
+    Args:
+        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
+        numerical_columns (list): Danh sách các cột số để vẽ.
+        target_column (str): Tên của cột mục tiêu.
+    """
+    num_plots = len(numerical_columns)
+    if num_plots == 0:
+        print("Không có cột số nào để hiển thị.")
+        return
+
+    # Xác định kích thước lưới, ví dụ 2 cột
+    cols = 2
+    rows = (num_plots + cols - 1) // cols
+
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 8, rows * 6), squeeze=False)
+    axes = axes.flatten()
+
+    for i, num_col in enumerate(numerical_columns):
+        ax = axes[i]
+        
+        # Convert to a dictionary that seaborn can understand for the specific plot
+        plot_data = {
+            num_col: data[num_col],
+            target_column: data[target_column]
+        }
+        
+        sns.boxplot(x=target_column, y=num_col, data=plot_data, ax=ax)
+        ax.set_title(f'{num_col} vs {target_column}', fontsize=14)
+        ax.set_xlabel(target_column, fontsize=12)
+        ax.set_ylabel(num_col, fontsize=12)
+
+    # Ẩn các subplot không sử dụng
+    for i in range(num_plots, len(axes)):
+        fig.delaxes(axes[i])
+
+    plt.tight_layout(pad=3.0)
     plt.show()
