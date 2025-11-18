@@ -297,3 +297,53 @@ def count_row_completeness(data):
         'empty_rows': empty_rows_count,
         'partial_rows': partial_rows_count
     }
+
+def get_numerical_summary_by_category(data, numerical_col, categorical_col):
+    """
+    Calculates summary statistics for a numerical column grouped by a categorical column.
+
+    Args:
+        data (np.ndarray): The dataset.
+        numerical_col (str): The name of the numerical column.
+        categorical_col (str): The name of the categorical column.
+
+    Returns:
+        dict: A dictionary where keys are categories and values are summary statistics.
+    """
+    summary = {}
+    unique_categories = np.unique(data[categorical_col])
+    
+    for category in unique_categories:
+        if category == '': # Skip missing values category if it exists
+            continue
+        
+        mask = data[categorical_col] == category
+        numerical_data_for_category = data[numerical_col][mask]
+        
+        # Remove NaNs
+        numerical_data_for_category = numerical_data_for_category[~np.isnan(numerical_data_for_category)]
+        
+        if numerical_data_for_category.size > 0:
+            summary[category] = {
+                'count': numerical_data_for_category.size,
+                'mean': np.mean(numerical_data_for_category),
+                'std': np.std(numerical_data_for_category),
+                'min': np.min(numerical_data_for_category),
+                '25%': np.percentile(numerical_data_for_category, 25),
+                'median': np.median(numerical_data_for_category),
+                '75%': np.percentile(numerical_data_for_category, 75),
+                'max': np.max(numerical_data_for_category)
+            }
+        else:
+            summary[category] = {
+                'count': 0,
+                'mean': np.nan,
+                'std': np.nan,
+                'min': np.nan,
+                '25%': np.nan,
+                'median': np.nan,
+                '75%': np.nan,
+                'max': np.nan
+            }
+            
+    return summary

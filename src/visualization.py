@@ -53,7 +53,7 @@ def plot_target_distribution(target_counts, target_percentages):
     bars = ax.bar(labels, counts)
 
     ax.set_title('Phân phối của Biến Mục tiêu', fontsize=16)
-    ax.set_xlabel('Lớp Mục tiêu', fontsize=12)
+    ax.set_xlabel('Nhãn', fontsize=12)
     ax.set_ylabel('Số lượng', fontsize=12)
 
     for bar, percentage in zip(bars, percentages):
