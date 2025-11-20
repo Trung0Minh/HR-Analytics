@@ -106,7 +106,7 @@ def plot_scaling_comparison(data, col1, col2):
     plt.grid(True)
     plt.show()
 
-def plot_categorical_analysis(data, column_name, target_column='target'):
+def plot_categorical_analysis(data, column_name, target_column='target', top_n=None):
     """
     Tạo hai biểu đồ cho một đặc trưng phân loại:
     1. Biểu đồ cột thể hiện phân phối của đặc trưng.
@@ -116,6 +116,7 @@ def plot_categorical_analysis(data, column_name, target_column='target'):
         data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
         column_name (str): Tên của cột phân loại.
         target_column (str): Tên của cột mục tiêu.
+        top_n (int, optional): Chỉ hiển thị top N danh mục có tần suất cao nhất. Mặc định là None (hiển thị tất cả).
     """
     # Lấy phân phối của đặc trưng
     dist = dp.get_categorical_distribution(data, column_name)
@@ -123,10 +124,14 @@ def plot_categorical_analysis(data, column_name, target_column='target'):
     # Lấy tỷ lệ target theo đặc trưng
     target_rate = dp.calculate_target_rate_by_category(data, column_name, target_column)
     
-    # Lấy tất cả các danh mục
+    # Lấy tất cả hoặc top N danh mục
     categories_to_plot = dist['categories']
     counts_to_plot = dist['counts']
     
+    if top_n is not None and top_n < len(categories_to_plot):
+        categories_to_plot = categories_to_plot[:top_n]
+        counts_to_plot = counts_to_plot[:top_n]
+
     # Sắp xếp rates và counts từ target_rate theo thứ tự của categories_to_plot
     ordered_rates = [target_rate[cat]['target_rate'] for cat in categories_to_plot]
     ordered_counts = [target_rate[cat]['count'] for cat in categories_to_plot]
@@ -296,3 +301,122 @@ def plot_numerical_vs_target_grid(data, numerical_columns, target_column='target
 
     plt.tight_layout(pad=3.0)
     plt.show()
+
+def plot_experience_interaction(interaction_data):
+    """
+    Plots the interaction between experience and another categorical variable.
+
+    Args:
+        interaction_data (dict): The output from dp.analyze_experience_interaction.
+    """
+    summary = interaction_data['summary']
+    unique_exp_groups = interaction_data['exp_groups']
+    unique_hue_values = interaction_data['hue_values']
+    overall_mean = interaction_data['overall_mean']
+    hue_column_name = interaction_data['hue_column_name']
+    
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    x = np.arange(len(unique_exp_groups))
+    width = 0.15 # Width of each bar
+    
+    num_hues = len(unique_hue_values)
+
+    # Draw the bars for each hue value
+    for i, (hue_val, rates) in enumerate(summary.items()):
+        offset = width * (i - (num_hues - 1) / 2)
+        ax.bar(x + offset, rates, width, label=hue_val)
+
+    # Add the overall mean line
+    ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
+
+    # Configure the plot
+    ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
+    ax.set_title(f'Tương tác giữa Kinh nghiệm và {hue_column_name.replace("_", " ").title()} đến Tỷ lệ Tìm việc')
+    ax.set_xticks(x)
+    ax.set_xticklabels(unique_exp_groups, rotation=45, ha='right')
+    ax.legend(title=hue_column_name.replace("_", " ").title())
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_bivariate_categorical(analysis_data):
+    """
+    Plots the interaction between two categorical variables from pre-analyzed data.
+
+    Args:
+        analysis_data (dict): The output from dp.analyze_bivariate_categorical.
+    """
+    summary = analysis_data['summary']
+    x_values = analysis_data['x_values']
+    hue_values = analysis_data['hue_values']
+    overall_mean = analysis_data['overall_mean']
+    x_col_name = analysis_data['x_col_name']
+    hue_col_name = analysis_data['hue_col_name']
+    
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    x = np.arange(len(x_values))
+    # Adjust width based on number of categories to avoid clutter
+    num_hues = len(hue_values)
+    width = 0.8 / (num_hues + 1)
+
+    # Draw the bars for each hue value
+    for i, (hue_val, rates) in enumerate(summary.items()):
+        offset = width * (i - (num_hues - 1) / 2)
+        # Convert rates to numpy array for nan handling
+        rates_np = np.array(rates, dtype=float)
+        ax.bar(x + offset, rates_np, width, label=hue_val)
+
+    # Add the overall mean line
+    ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
+
+    # Configure the plot
+    ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
+    ax.set_title(f'Tương tác giữa {x_col_name.replace("_", " ").title()} và {hue_col_name.replace("_", " ").title()}')
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_values, rotation=45, ha='right')
+    ax.legend(title=hue_col_name.replace("_", " ").title())
+    
+    ax.set_ylim(0, max(ax.get_ylim()[1], overall_mean * 1.2)) # Ensure y-axis has some space
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_numerical_categorical_interaction(data, num_col, cat_col, target_col='target'):
+    """
+    Plots the interaction between a numerical and a categorical variable against a target.
+    Uses seaborn's catplot for a faceted box plot view.
+
+    Args:
+        data (np.ndarray): The dataset.
+        num_col (str): The numerical column.
+        cat_col (str): The categorical column.
+        target_col (str): The target column.
+    """
+    # Seaborn works best with pandas DataFrames
+    import pandas as pd
+    
+    df = pd.DataFrame(data)
+    
+    # Clean up data for plotting
+    df[target_col] = pd.to_numeric(df[target_col])
+    df = df[df[cat_col] != ''] # Remove empty category
+    
+    # For experience, let's use the grouped version for clarity
+    if cat_col == 'experience':
+        exp_numeric = df['experience'].replace({'>20': '21', '<1': '0', '': '-1'}).astype(int)
+        df['experience_group'] = pd.cut(exp_numeric, 
+                                        bins=[-2, -1, 0, 5, 10, 20, 21], 
+                                        labels=['Missing', 'Fresher (<1)', 'Junior (1-5)', 'Mid-level (6-10)', 'Senior (11-20)', 'Expert (>20)'])
+        cat_col = 'experience_group'
+
+
+    sns.catplot(data=df, x=target_col, y=num_col, col=cat_col, kind='box', col_wrap=4, height=4, aspect=1.2)
+    
+    plt.suptitle(f'Phân phối của {num_col.replace("_", " ").title()} theo {cat_col.replace("_", " ").title()} và Target', y=1.03, fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.show()
+    
