@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import seaborn as sns
 import numpy as np
 from src import data_processing as dp
@@ -143,12 +144,8 @@ def plot_categorical_analysis(data, column_name, target_column='target', top_n=N
     fig, axes = plt.subplots(1, 2, figsize=(18, max(6, len(categories_to_plot) * 0.4)))
 
     # Biểu đồ 1: Phân phối của đặc trưng
-    sns.barplot(x=counts_to_plot, y=categories_to_plot, ax=axes[0], orient='h', hue=categories_to_plot, palette=color_map, legend=False)
+    axes[0].pie(counts_to_plot, labels=categories_to_plot, autopct='%1.1f%%', startangle=140, colors=[color_map[cat] for cat in categories_to_plot])
     axes[0].set_title(f'Phân phối của {column_name}', fontsize=14)
-    axes[0].set_xlabel('Số lượng', fontsize=12)
-    axes[0].set_ylabel(column_name, fontsize=12)
-    for i, v in enumerate(counts_to_plot):
-        axes[0].text(v, i, f' {v}', color='black', va='center')
 
     # Biểu đồ 2: Tỷ lệ target theo đặc trưng
     # Sắp xếp lại theo tỷ lệ target để dễ so sánh
@@ -323,7 +320,7 @@ def plot_experience_interaction(interaction_data):
     
     num_hues = len(unique_hue_values)
 
-    # Draw the bars for each hue value
+    # Draw the bars for each hue
     for i, (hue_val, rates) in enumerate(summary.items()):
         offset = width * (i - (num_hues - 1) / 2)
         ax.bar(x + offset, rates, width, label=hue_val)
@@ -418,5 +415,260 @@ def plot_numerical_categorical_interaction(data, num_col, cat_col, target_col='t
     
     plt.suptitle(f'Phân phối của {num_col.replace("_", " ").title()} theo {cat_col.replace("_", " ").title()} và Target', y=1.03, fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.show()
+
+def _calculate_confusion_matrix(y_true, y_pred, classes):
+    """Helper to calculate a confusion matrix using numpy."""
+    num_classes = len(classes)
+    matrix = np.zeros((num_classes, num_classes), dtype=int)
+    class_map = {cls: i for i, cls in enumerate(classes)}
+    
+    for i in range(len(y_true)):
+        true_label = y_true[i]
+        pred_label = y_pred[i]
+        matrix[class_map[true_label], class_map[pred_label]] += 1
+        
+    return matrix
+
+def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
+    """
+    Computes and plots a figure with two subplots: a confusion matrix and an ROC curve.
+    
+    Args:
+        y_true (np.array): Ground truth labels.
+        y_pred (np.array): Predicted labels.
+        y_pred_proba (np.array): Predicted probabilities for each class.
+        dataset_name (str): Name of the dataset to be used in titles.
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # --- Subplot 1: Confusion Matrix ---
+    classes = np.unique(np.concatenate((y_true, y_pred)))
+    cm = _calculate_confusion_matrix(y_true, y_pred, classes)
+    
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=classes, yticklabels=classes, ax=ax1)
+    ax1.set_title(f'Confusion Matrix - {dataset_name}', fontsize=14)
+    ax1.set_ylabel('Actual Label', fontsize=12)
+    ax1.set_xlabel('Predicted Label', fontsize=12)
+
+    # --- Subplot 2: ROC Curve ---
+    positive_class = 1
+    y_scores = y_pred_proba[:, positive_class]
+
+    thresholds = np.linspace(0, 1, 101)
+    tpr_list = []
+    fpr_list = []
+
+    for thresh in thresholds:
+        y_pred_thresh = (y_scores >= thresh).astype(int)
+        
+        tp = np.sum((y_true == positive_class) & (y_pred_thresh == positive_class))
+        fp = np.sum((y_true != positive_class) & (y_pred_thresh == positive_class))
+        tn = np.sum((y_true != positive_class) & (y_pred_thresh != positive_class))
+        fn = np.sum((y_true == positive_class) & (y_pred_thresh != positive_class))
+
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+        
+        tpr_list.append(tpr)
+        fpr_list.append(fpr)
+
+    # Calculate AUC
+    auc_score = -np.trapz(tpr_list, fpr_list)
+
+    # Plotting ROC
+    ax2.plot(fpr_list, tpr_list, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
+    ax2.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    ax2.set_xlim([0.0, 1.0])
+    ax2.set_ylim([0.0, 1.05])
+    ax2.set_xlabel('False Positive Rate', fontsize=12)
+    ax2.set_ylabel('True Positive Rate', fontsize=12)
+    ax2.set_title(f'ROC Curve - {dataset_name}', fontsize=14)
+    ax2.legend(loc="lower right")
+    ax2.grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+
+def plot_train_test_comparison(train_data, test_data):
+    """
+    Replicates the comparison visualization from the prompt using 4x3 grid.
+    Includes all categorical/ordinal features.
+    """
+    if isinstance(train_data, str):
+        train_data = dp.load_data(train_data)
+    if isinstance(test_data, str):
+        test_data = dp.load_data(test_data)
+
+    background_color = "#fbfbfb"
+    fig = plt.figure(figsize=(22, 20), dpi=150)
+    fig.patch.set_facecolor(background_color)
+    gs = fig.add_gridspec(4, 3)
+    gs.update(wspace=0.35, hspace=0.27)
+
+    axes = []
+    for i in range(4):
+        for j in range(3):
+            axes.append(fig.add_subplot(gs[i, j]))
+
+    # Apply formatting to all axes
+    for ax in axes:
+        ax.set_facecolor(background_color)
+        ax.tick_params(axis=u'both', which=u'both', length=0)
+        for s in ["top", "right", "left"]:
+            ax.spines[s].set_visible(False)
+
+    def get_aligned_dist(train, test, col, sort_map=None):
+        # Get all unique categories
+        cats_tr = np.unique(train[col])
+        cats_te = np.unique(test[col])
+        all_cats = np.unique(np.concatenate([cats_tr, cats_te]))
+        all_cats = all_cats[all_cats != ''] # Remove empty
+        
+        if sort_map:
+             # Custom sort
+             sorted_cats = sorted(all_cats, key=lambda x: sort_map.get(x, 999))
+             all_cats = np.array(sorted_cats)
+        else:
+            all_cats.sort()
+            
+        def get_p(d, cats):
+            vals, counts = np.unique(d[col], return_counts=True)
+            mapping = dict(zip(vals, counts))
+            total = sum([c for v,c in mapping.items() if v != ''])
+            if total == 0: return np.zeros(len(cats))
+            return np.array([mapping.get(c, 0)/total*100 for c in cats])
+
+        return all_cats, get_p(train, all_cats), get_p(test, all_cats)
+
+    # 0 - EDUCATION LEVEL
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "education_level")
+    x = np.arange(len(cats))
+    axes[0].bar(x, height=tr_p, zorder=3, color="gray", width=0.05)
+    axes[0].scatter(x, tr_p, zorder=3, s=200, color="gray")
+    axes[0].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.05)
+    axes[0].scatter(x + 0.4, te_p, zorder=3, s=200, color="#0e4f66")
+    axes[0].text(-0.5, max(tr_p.max(), te_p.max())*1.1, 'Education Level', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[0].yaxis.set_major_formatter(mtick.PercentFormatter())
+    axes[0].set_xticks(x + 0.2)
+    axes[0].set_xticklabels(cats, rotation=0)
+
+    # 1 - ENROLLED UNIVERSITY
+    enroll_map = {'no_enrollment': 0, 'Part time course': 1, 'Full time course': 2}
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "enrolled_university", enroll_map)
+    axes[1].text(0, len(cats)-0.5, 'University Enrollment', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[1].barh(cats, tr_p, color="gray", zorder=3, height=0.6)
+    axes[1].barh(cats, te_p, color="#0e4f66", zorder=3, height=0.4)
+    axes[1].xaxis.set_major_formatter(mtick.PercentFormatter())
+    
+    # 2 - GENDER
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "gender")
+    x = np.arange(len(cats))
+    axes[2].text(-0.6, max(tr_p.max(), te_p.max())*1.1, 'Gender', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[2].grid(color='gray', linestyle=':', axis='y', zorder=0, dashes=(1, 5))
+    axes[2].bar(x, height=tr_p, zorder=3, color="gray", width=0.4)
+    axes[2].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.4)
+    axes[2].set_xticks(x + 0.2)
+    axes[2].set_xticklabels(cats)
+    axes[2].yaxis.set_major_formatter(mtick.PercentFormatter())
+    
+    # 3 - CDI
+    axes[3].grid(color='gray', linestyle=':', axis='y', zorder=0, dashes=(1, 5))
+    sns.kdeplot(train_data["city_development_index"], ax=axes[3], color="gray", shade=True, label="Train")
+    sns.kdeplot(test_data["city_development_index"], ax=axes[3], color="#0e4f66", shade=True, label="Test")
+    axes[3].text(0.29, axes[3].get_ylim()[1]*0.9, 'City Development Index', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[3].set_ylabel('')
+    axes[3].set_xlabel('')
+    
+    # 4 - RELEVANT EXPERIENCE
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "relevent_experience")
+    x = np.arange(len(cats))
+    axes[4].text(-0.4, max(tr_p.max(), te_p.max())*1.1, 'Relevant Experience', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[4].grid(color='gray', linestyle=':', axis='y', zorder=0, dashes=(1, 5))
+    axes[4].bar(x, height=tr_p, zorder=3, color="gray", width=0.4)
+    axes[4].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.4)
+    axes[4].set_xticks(x + 0.2)
+    axes[4].set_xticklabels(cats)
+    axes[4].yaxis.set_major_formatter(mtick.PercentFormatter())
+    
+    # 5 - TRAINING HOURS
+    tr_h = train_data["training_hours"]
+    te_h = test_data["training_hours"]
+    tr_h = tr_h[~np.isnan(tr_h)]
+    te_h = te_h[~np.isnan(te_h)]
+    
+    y_vals = np.concatenate([tr_h, te_h])
+    x_vals = np.array(["Train"] * len(tr_h) + ["Test"] * len(te_h))
+    
+    axes[5].text(-0.65, max(y_vals)*1.1 if len(y_vals)>0 else 100, 'Training Hours', fontsize=14, fontweight='bold', fontfamily='serif', color="#002d1d")
+    sns.boxenplot(x=x_vals, y=y_vals, ax=axes[5], palette=["gray", "#0e4f66"])
+    axes[5].set_xlabel("")
+    axes[5].set_ylabel("")
+    
+    # 6 - EXPERIENCE
+    def exp_key(val):
+        if val == '<1': return 0
+        if val == '>20': return 21
+        try: return int(val)
+        except: return -1
+    
+    unique_exp = np.unique(np.concatenate([train_data['experience'], test_data['experience']]))
+    unique_exp = unique_exp[unique_exp != '']
+    exp_map = {k: exp_key(k) for k in unique_exp}
+    
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "experience", exp_map)
+    
+    axes[6].grid(color='gray', linestyle=':', axis='y', zorder=0, dashes=(1, 5))
+    axes[6].plot(cats, tr_p, zorder=3, color="gray", marker='o')
+    axes[6].plot(cats, te_p, zorder=3, color="#0e4f66", marker='o')
+    axes[6].text(-1.5, max(tr_p.max(), te_p.max())*1.1, 'Years Experience', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[6].set_xticklabels(cats, rotation=90)
+    
+    # 7 - MAJOR DISCIPLINE
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "major_discipline")
+    axes[7].barh(np.arange(len(cats)), tr_p, zorder=3, color="gray", height=0.4)
+    axes[7].barh(np.arange(len(cats)) + 0.4, te_p, zorder=3, color="#0e4f66", height=0.4)
+    axes[7].text(-5, -0.8, 'Major Discipline', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[7].xaxis.set_major_formatter(mtick.PercentFormatter())
+    axes[7].set_yticks(np.arange(len(cats)) + 0.2)
+    axes[7].set_yticklabels(cats)
+    axes[7].invert_yaxis()
+
+    # 8 - COMPANY SIZE
+    size_map = {'<10': 0, '10/49': 1, '50-99': 2, '100-500': 3, '500-999': 4, '1000-4999': 5, '5000-9999': 6, '10000+': 7}
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "company_size", size_map)
+    x = np.arange(len(cats))
+    axes[8].bar(x, height=tr_p, zorder=3, color="gray", width=0.4)
+    axes[8].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.4)
+    axes[8].text(-0.5, max(tr_p.max(), te_p.max())*1.1, 'Company Size', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[8].set_xticks(x + 0.2)
+    axes[8].set_xticklabels(cats, rotation=45, ha='right')
+    axes[8].yaxis.set_major_formatter(mtick.PercentFormatter())
+
+    # 9 - COMPANY TYPE
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "company_type")
+    x = np.arange(len(cats))
+    axes[9].bar(x, height=tr_p, zorder=3, color="gray", width=0.4)
+    axes[9].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.4)
+    axes[9].text(-0.5, max(tr_p.max(), te_p.max())*1.1, 'Company Type', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[9].set_xticks(x + 0.2)
+    axes[9].set_xticklabels(cats, rotation=45, ha='right')
+    axes[9].yaxis.set_major_formatter(mtick.PercentFormatter())
+
+    # 10 - LAST NEW JOB
+    job_map = {'never': 0, '1': 1, '2': 2, '3': 3, '4': 4, '>4': 5}
+    cats, tr_p, te_p = get_aligned_dist(train_data, test_data, "last_new_job", job_map)
+    x = np.arange(len(cats))
+    axes[10].bar(x, height=tr_p, zorder=3, color="gray", width=0.4)
+    axes[10].bar(x + 0.4, height=te_p, zorder=3, color="#0e4f66", width=0.4)
+    axes[10].text(-0.5, max(tr_p.max(), te_p.max())*1.1, 'Last New Job', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[10].set_xticks(x + 0.2)
+    axes[10].set_xticklabels(cats)
+    axes[10].yaxis.set_major_formatter(mtick.PercentFormatter())
+
+    # Hide the last subplot (11)
+    axes[11].set_visible(False)
+    
     plt.show()
     

@@ -1,4 +1,6 @@
 seaborn==0.13.2
 numpy==1.26.0
-matplotl.ib==3.8.0
-ipykernel==6.30.1.
+matplotlib==3.8.0
+ipykernel==6.30.1
+tqdm==4.67.1
+imbalanced-learn==0.14.0

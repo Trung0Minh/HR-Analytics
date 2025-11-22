@@ -15,38 +15,6 @@ def load_data(filepath):
     data = np.genfromtxt(filepath, delimiter=',', names=True, dtype=None, encoding='utf-8', autostrip=True)
     return data
 
-def update_string_lengths(data, length_map):
-    """
-    Updates the dtype of specified string columns to a new length.
-
-    Args:
-        data (np.ndarray): The input structured array.
-        length_map (dict): A dictionary mapping column names to the desired new max length (e.g., {'gender': 10}).
-
-    Returns:
-        np.ndarray: A new array with updated string lengths.
-    """
-    new_dtype_descr = list(data.dtype.descr)
-    
-    # Create a lookup map for faster access
-    dtype_map = {name: i for i, (name, _) in enumerate(new_dtype_descr)}
-
-    for col, new_len in length_map.items():
-        if col in dtype_map:
-            idx = dtype_map[col]
-            # Ensure it's a string type before updating
-            if 'U' in new_dtype_descr[idx][1]:
-                new_dtype_descr[idx] = (col, f'<U{new_len}')
-
-    # Create a new array with the new dtype
-    new_data = np.empty(data.shape, dtype=np.dtype(new_dtype_descr))
-    
-    # Copy data column by column from the old array to the new one
-    for name in data.dtype.names:
-        new_data[name] = data[name]
-        
-    return new_data
-
 def get_basic_info(data):
     """
     Lấy thông tin cơ bản về tập dữ liệu.
@@ -699,3 +667,166 @@ def fill_missing_categorical(data, columns, fill_value='Missing'):
             new_data[name] = data[name]
             
     return new_data
+
+def encode_ordinal(data, column_name, category_mapping):
+    """
+    Encodes a categorical column using a specified ordinal mapping.
+    Any value not in the mapping will be set to -1.
+
+    Args:
+        data (np.ndarray): The input structured array.
+        column_name (str): The name of the column to encode.
+        category_mapping (dict): A dictionary mapping categories to integers.
+
+    Returns:
+        np.ndarray: A new array with the column encoded and dtype updated.
+    """
+    if column_name not in data.dtype.names:
+        return data
+
+    # Create a new array for the encoded column, defaulting to -1
+    encoded_column = np.full(len(data), -1, dtype=np.int32)
+
+    # Apply mapping
+    for i, value in enumerate(data[column_name]):
+        encoded_column[i] = category_mapping.get(value, -1)
+
+    # Drop the old field and append the new one to handle dtype changes
+    temp_data = rfn.drop_fields(data, column_name)
+    new_data = rfn.append_fields(temp_data, column_name, encoded_column, usemask=False)
+    
+    # Reorder fields to maintain original order
+    original_order = list(data.dtype.names)
+    current_order = list(new_data.dtype.names)
+    # Move the new column to its original position
+    current_order.insert(original_order.index(column_name), current_order.pop(current_order.index(column_name)))
+    
+    return new_data[current_order]
+
+
+def encode_midpoint(data, column_name, category_mapping):
+    """
+    Encodes a categorical column with ranges into numerical midpoints.
+    Missing values are temporarily marked with -1 and then imputed with the median.
+
+    Args:
+        data (np.ndarray): The input structured array.
+        column_name (str): The name of the column to encode.
+        category_mapping (dict): A dictionary mapping range categories to midpoint values.
+
+    Returns:
+        np.ndarray: A new array with the column encoded as a float.
+    """
+    if column_name not in data.dtype.names:
+        return data
+
+    # Create a new float array for the encoded column, initialized with a placeholder for missing
+    encoded_column = np.full(len(data), -1.0, dtype=float)
+
+    # Apply mapping
+    for i, value in enumerate(data[column_name]):
+        encoded_column[i] = category_mapping.get(value, -1.0)
+
+    # Impute missing values (marked as -1.0) with the median of non-missing values
+    non_missing_mask = encoded_column != -1.0
+    if np.any(non_missing_mask):
+        median_val = np.median(encoded_column[non_missing_mask])
+        encoded_column[encoded_column == -1.0] = median_val
+
+    # Drop the old column and append the new float column
+    temp_data = rfn.drop_fields(data, column_name)
+    new_data = rfn.append_fields(temp_data, column_name, encoded_column, usemask=False)
+    
+    # Reorder fields to maintain original order
+    original_order = list(data.dtype.names)
+    current_order = list(new_data.dtype.names)
+    current_order.insert(original_order.index(column_name), current_order.pop(current_order.index(column_name)))
+    
+    return new_data[current_order]
+
+
+def encode_one_hot(data, columns_to_encode):
+    """
+    Performs one-hot encoding on specified columns of a NumPy structured array.
+    'Missing' categories are also encoded.
+
+    Args:
+        data (np.ndarray): The input structured array.
+        columns_to_encode (list): A list of column names to encode.
+
+    Returns:
+        np.ndarray: A new array with one-hot encoded columns appended and original columns removed.
+    """
+    new_fields_data = []
+    new_field_names = []
+    
+    columns_found = [col for col in columns_to_encode if col in data.dtype.names]
+    if not columns_found:
+        return data
+
+    # For each column to be one-hot encoded
+    for col_name in columns_found:
+        unique_categories = np.unique(data[col_name])
+        
+        # For each unique category, create a new binary column
+        for category in unique_categories:
+            if category == '': continue # Skip empty strings if any
+            
+            # Create a safe name for the new column, removing special characters
+            safe_category = str(category).replace(' ', '_').replace('/', '_').replace('>', 'gt').replace('<', 'lt').replace('-', '_')
+            new_col_name = f"{col_name}_{safe_category}"
+            new_field_names.append(new_col_name)
+            
+            # Create the binary data for this new column
+            new_col_data = (data[col_name] == category).astype(np.int8)
+            new_fields_data.append(new_col_data)
+
+    # Start with data that does not include the original columns to be encoded
+    data_with_dropped_cols = rfn.drop_fields(data, columns_found)
+    
+    # Append all new one-hot columns to the data
+    if not new_fields_data:
+        return data_with_dropped_cols
+
+    new_data = rfn.append_fields(data_with_dropped_cols, new_field_names, new_fields_data, usemask=False)
+    
+    return new_data
+
+def oversample(X, y):
+    """
+    Performs random oversampling on the minority class to balance the dataset.
+    
+    Args:
+        X (np.ndarray): Feature matrix.
+        y (np.ndarray): Target vector.
+        
+    Returns:
+        (np.ndarray, np.ndarray): The oversampled X and y.
+    """
+    # Find the counts of each class
+    counts = np.bincount(y)
+    majority_class_label = np.argmax(counts)
+    minority_class_label = np.argmin(counts)
+    
+    # Get the indices of the majority and minority classes
+    majority_indices = np.where(y == majority_class_label)[0]
+    minority_indices = np.where(y == minority_class_label)[0]
+    
+    # Calculate how many samples we need to add
+    n_to_add = len(majority_indices) - len(minority_indices)
+    
+    if n_to_add <= 0:
+        return X, y
+        
+    # Randomly choose indices from the minority class to duplicate
+    oversample_indices = np.random.choice(minority_indices, size=n_to_add, replace=True)
+    
+    # Get the feature and target data for these new samples
+    X_oversampled = X[oversample_indices]
+    y_oversampled = y[oversample_indices]
+    
+    # Concatenate the new samples with the original data
+    X_balanced = np.vstack((X, X_oversampled))
+    y_balanced = np.hstack((y, y_oversampled))
+    
+    return X_balanced, y_balanced
