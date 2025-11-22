@@ -169,23 +169,23 @@ def plot_categorical_analysis(data, column_name, target_column='target', top_n=N
 
 def plot_correlation_heatmap(data, numerical_cols):
     """
-    Calculates and plots the correlation matrix for numerical columns using NumPy.
+    Tính toán và vẽ ma trận tương quan cho các cột số sử dụng NumPy.
     
     Args:
-        data (np.ndarray): NumPy structured array.
-        numerical_cols (list): List of numerical column names.
+        data (np.ndarray): Mảng cấu trúc NumPy chứa dữ liệu.
+        numerical_cols (list): Danh sách tên các cột số.
     """
-    # Create a 2D array from the numerical columns
+    # Tạo mảng 2D từ các cột số
     num_data = np.array([data[col] for col in numerical_cols], dtype=np.float64).T
     
-    # Handle NaNs for correlation calculation. A simple approach is to replace NaNs with the column mean.
-    # This is a simplification for visualization purposes.
+    # Xử lý NaN để tính toán tương quan. Cách đơn giản là thay thế NaN bằng giá trị trung bình của cột.
+    # Đây là sự đơn giản hóa cho mục đích trực quan hóa.
     col_means = np.nanmean(num_data, axis=0)
     nan_indices = np.where(np.isnan(num_data))
-    # Replace NaNs with the mean of their respective columns
+    # Thay thế NaN bằng giá trị trung bình của các cột tương ứng
     num_data[nan_indices] = np.take(col_means, nan_indices[1])
 
-    # Calculate correlation matrix
+    # Tính toán ma trận tương quan
     corr_matrix = np.corrcoef(num_data, rowvar=False)
     
     plt.figure(figsize=(10, 8))
@@ -301,10 +301,10 @@ def plot_numerical_vs_target_grid(data, numerical_columns, target_column='target
 
 def plot_experience_interaction(interaction_data):
     """
-    Plots the interaction between experience and another categorical variable.
+    Vẽ biểu đồ tương tác giữa kinh nghiệm và một biến phân loại khác.
 
     Args:
-        interaction_data (dict): The output from dp.analyze_experience_interaction.
+        interaction_data (dict): Đầu ra từ dp.analyze_experience_interaction.
     """
     summary = interaction_data['summary']
     unique_exp_groups = interaction_data['exp_groups']
@@ -316,19 +316,19 @@ def plot_experience_interaction(interaction_data):
     fig, ax = plt.subplots(figsize=(14, 8))
 
     x = np.arange(len(unique_exp_groups))
-    width = 0.15 # Width of each bar
+    width = 0.15 # Chiều rộng của mỗi cột
     
     num_hues = len(unique_hue_values)
 
-    # Draw the bars for each hue
+    # Vẽ các cột cho mỗi màu (hue)
     for i, (hue_val, rates) in enumerate(summary.items()):
         offset = width * (i - (num_hues - 1) / 2)
         ax.bar(x + offset, rates, width, label=hue_val)
 
-    # Add the overall mean line
+    # Thêm đường trung bình tổng thể
     ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
 
-    # Configure the plot
+    # Cấu hình biểu đồ
     ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
     ax.set_title(f'Tương tác giữa Kinh nghiệm và {hue_column_name.replace("_", " ").title()} đến Tỷ lệ Tìm việc')
     ax.set_xticks(x)
@@ -340,10 +340,10 @@ def plot_experience_interaction(interaction_data):
 
 def plot_bivariate_categorical(analysis_data):
     """
-    Plots the interaction between two categorical variables from pre-analyzed data.
+    Vẽ biểu đồ tương tác giữa hai biến phân loại từ dữ liệu đã được phân tích trước.
 
     Args:
-        analysis_data (dict): The output from dp.analyze_bivariate_categorical.
+        analysis_data (dict): Đầu ra từ dp.analyze_bivariate_categorical.
     """
     summary = analysis_data['summary']
     x_values = analysis_data['x_values']
@@ -356,53 +356,53 @@ def plot_bivariate_categorical(analysis_data):
     fig, ax = plt.subplots(figsize=(14, 8))
 
     x = np.arange(len(x_values))
-    # Adjust width based on number of categories to avoid clutter
+    # Điều chỉnh chiều rộng dựa trên số lượng danh mục để tránh lộn xộn
     num_hues = len(hue_values)
     width = 0.8 / (num_hues + 1)
 
-    # Draw the bars for each hue value
+    # Vẽ các cột cho mỗi giá trị màu (hue)
     for i, (hue_val, rates) in enumerate(summary.items()):
         offset = width * (i - (num_hues - 1) / 2)
-        # Convert rates to numpy array for nan handling
+        # Chuyển đổi rates thành mảng numpy để xử lý nan
         rates_np = np.array(rates, dtype=float)
         ax.bar(x + offset, rates_np, width, label=hue_val)
 
-    # Add the overall mean line
+    # Thêm đường trung bình tổng thể
     ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
 
-    # Configure the plot
+    # Cấu hình biểu đồ
     ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
     ax.set_title(f'Tương tác giữa {x_col_name.replace("_", " ").title()} và {hue_col_name.replace("_", " ").title()}')
     ax.set_xticks(x)
     ax.set_xticklabels(x_values, rotation=45, ha='right')
     ax.legend(title=hue_col_name.replace("_", " ").title())
     
-    ax.set_ylim(0, max(ax.get_ylim()[1], overall_mean * 1.2)) # Ensure y-axis has some space
+    ax.set_ylim(0, max(ax.get_ylim()[1], overall_mean * 1.2)) # Đảm bảo trục y có khoảng trống
 
     plt.tight_layout()
     plt.show()
 
 def plot_numerical_categorical_interaction(data, num_col, cat_col, target_col='target'):
     """
-    Plots the interaction between a numerical and a categorical variable against a target.
-    Uses seaborn's catplot for a faceted box plot view.
+    Vẽ biểu đồ tương tác giữa một biến số và một biến phân loại so với mục tiêu.
+    Sử dụng catplot của seaborn để hiển thị box plot theo từng nhóm.
 
     Args:
-        data (np.ndarray): The dataset.
-        num_col (str): The numerical column.
-        cat_col (str): The categorical column.
-        target_col (str): The target column.
+        data (np.ndarray): Bộ dữ liệu.
+        num_col (str): Cột số.
+        cat_col (str): Cột phân loại.
+        target_col (str): Cột mục tiêu.
     """
-    # Seaborn works best with pandas DataFrames
+    # Seaborn hoạt động tốt nhất với pandas DataFrames
     import pandas as pd
     
     df = pd.DataFrame(data)
     
-    # Clean up data for plotting
+    # Làm sạch dữ liệu để vẽ biểu đồ
     df[target_col] = pd.to_numeric(df[target_col])
-    df = df[df[cat_col] != ''] # Remove empty category
+    df = df[df[cat_col] != ''] # Loại bỏ danh mục trống
     
-    # For experience, let's use the grouped version for clarity
+    # Đối với kinh nghiệm, hãy sử dụng phiên bản nhóm để rõ ràng hơn
     if cat_col == 'experience':
         exp_numeric = df['experience'].replace({'>20': '21', '<1': '0', '': '-1'}).astype(int)
         df['experience_group'] = pd.cut(exp_numeric, 
@@ -418,7 +418,7 @@ def plot_numerical_categorical_interaction(data, num_col, cat_col, target_col='t
     plt.show()
 
 def _calculate_confusion_matrix(y_true, y_pred, classes):
-    """Helper to calculate a confusion matrix using numpy."""
+    """Hàm hỗ trợ để tính toán ma trận nhầm lẫn (confusion matrix) sử dụng numpy."""
     num_classes = len(classes)
     matrix = np.zeros((num_classes, num_classes), dtype=int)
     class_map = {cls: i for i, cls in enumerate(classes)}
@@ -432,17 +432,17 @@ def _calculate_confusion_matrix(y_true, y_pred, classes):
 
 def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
     """
-    Computes and plots a figure with two subplots: a confusion matrix and an ROC curve.
+    Tính toán và vẽ một hình với hai biểu đồ con: ma trận nhầm lẫn và đường cong ROC.
     
     Args:
-        y_true (np.array): Ground truth labels.
-        y_pred (np.array): Predicted labels.
-        y_pred_proba (np.array): Predicted probabilities for each class.
-        dataset_name (str): Name of the dataset to be used in titles.
+        y_true (np.array): Nhãn thực tế.
+        y_pred (np.array): Nhãn dự đoán.
+        y_pred_proba (np.array): Xác suất dự đoán cho mỗi lớp.
+        dataset_name (str): Tên của bộ dữ liệu được sử dụng trong tiêu đề.
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
     
-    # --- Subplot 1: Confusion Matrix ---
+    # --- Biểu đồ con 1: Ma trận nhầm lẫn ---
     classes = np.unique(np.concatenate((y_true, y_pred)))
     cm = _calculate_confusion_matrix(y_true, y_pred, classes)
     
@@ -452,7 +452,7 @@ def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
     ax1.set_ylabel('Actual Label', fontsize=12)
     ax1.set_xlabel('Predicted Label', fontsize=12)
 
-    # --- Subplot 2: ROC Curve ---
+    # --- Biểu đồ con 2: Đường cong ROC ---
     positive_class = 1
     y_scores = y_pred_proba[:, positive_class]
 
@@ -474,10 +474,10 @@ def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
         tpr_list.append(tpr)
         fpr_list.append(fpr)
 
-    # Calculate AUC
+    # Tính AUC
     auc_score = -np.trapz(tpr_list, fpr_list)
 
-    # Plotting ROC
+    # Vẽ ROC
     ax2.plot(fpr_list, tpr_list, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
     ax2.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     ax2.set_xlim([0.0, 1.0])
@@ -493,8 +493,8 @@ def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
 
 def plot_train_test_comparison(train_data, test_data):
     """
-    Replicates the comparison visualization from the prompt using 4x3 grid.
-    Includes all categorical/ordinal features.
+    Tái tạo trực quan hóa so sánh từ prompt sử dụng lưới 4x3.
+    Bao gồm tất cả các đặc trưng phân loại/thứ tự.
     """
     if isinstance(train_data, str):
         train_data = dp.load_data(train_data)
@@ -512,7 +512,7 @@ def plot_train_test_comparison(train_data, test_data):
         for j in range(3):
             axes.append(fig.add_subplot(gs[i, j]))
 
-    # Apply formatting to all axes
+    # Áp dụng định dạng cho tất cả các trục
     for ax in axes:
         ax.set_facecolor(background_color)
         ax.tick_params(axis=u'both', which=u'both', length=0)
@@ -520,14 +520,14 @@ def plot_train_test_comparison(train_data, test_data):
             ax.spines[s].set_visible(False)
 
     def get_aligned_dist(train, test, col, sort_map=None):
-        # Get all unique categories
+        # Lấy tất cả các danh mục duy nhất
         cats_tr = np.unique(train[col])
         cats_te = np.unique(test[col])
         all_cats = np.unique(np.concatenate([cats_tr, cats_te]))
-        all_cats = all_cats[all_cats != ''] # Remove empty
+        all_cats = all_cats[all_cats != ''] # Loại bỏ trống
         
         if sort_map:
-             # Custom sort
+             # Sắp xếp tùy chỉnh
              sorted_cats = sorted(all_cats, key=lambda x: sort_map.get(x, 999))
              all_cats = np.array(sorted_cats)
         else:
@@ -575,8 +575,8 @@ def plot_train_test_comparison(train_data, test_data):
     
     # 3 - CDI
     axes[3].grid(color='gray', linestyle=':', axis='y', zorder=0, dashes=(1, 5))
-    sns.kdeplot(train_data["city_development_index"], ax=axes[3], color="gray", shade=True, label="Train")
-    sns.kdeplot(test_data["city_development_index"], ax=axes[3], color="#0e4f66", shade=True, label="Test")
+    sns.kdeplot(train_data["city_development_index"], ax=axes[3], color="gray", fill=True, label="Train")
+    sns.kdeplot(test_data["city_development_index"], ax=axes[3], color="#0e4f66", fill=True, label="Test")
     axes[3].text(0.29, axes[3].get_ylim()[1]*0.9, 'City Development Index', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
     axes[3].set_ylabel('')
     axes[3].set_xlabel('')
@@ -602,7 +602,7 @@ def plot_train_test_comparison(train_data, test_data):
     x_vals = np.array(["Train"] * len(tr_h) + ["Test"] * len(te_h))
     
     axes[5].text(-0.65, max(y_vals)*1.1 if len(y_vals)>0 else 100, 'Training Hours', fontsize=14, fontweight='bold', fontfamily='serif', color="#002d1d")
-    sns.boxenplot(x=x_vals, y=y_vals, ax=axes[5], palette=["gray", "#0e4f66"])
+    sns.boxenplot(x=x_vals, y=y_vals, ax=axes[5], hue=x_vals, palette=["gray", "#0e4f66"], legend=False)
     axes[5].set_xlabel("")
     axes[5].set_ylabel("")
     
@@ -623,6 +623,7 @@ def plot_train_test_comparison(train_data, test_data):
     axes[6].plot(cats, tr_p, zorder=3, color="gray", marker='o')
     axes[6].plot(cats, te_p, zorder=3, color="#0e4f66", marker='o')
     axes[6].text(-1.5, max(tr_p.max(), te_p.max())*1.1, 'Years Experience', fontsize=14, fontweight='bold', fontfamily='serif', color="#323232")
+    axes[6].set_xticks(np.arange(len(cats)))
     axes[6].set_xticklabels(cats, rotation=90)
     
     # 7 - MAJOR DISCIPLINE
@@ -667,8 +668,14 @@ def plot_train_test_comparison(train_data, test_data):
     axes[10].set_xticklabels(cats)
     axes[10].yaxis.set_major_formatter(mtick.PercentFormatter())
 
-    # Hide the last subplot (11)
-    axes[11].set_visible(False)
+    # 11 - LEGEND
+    axes[11].axis('off')
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='gray', lw=4, label='Train'),
+        Line2D([0], [0], color='#0e4f66', lw=4, label='Test')
+    ]
+    axes[11].legend(handles=legend_elements, loc='center', fontsize=16, title="Dataset", title_fontsize=18, frameon=False)
     
     plt.show()
     

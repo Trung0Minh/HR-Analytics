@@ -6,7 +6,7 @@ import multiprocessing as mp
 
 class Node:
     """
-    A class representing a single node in a decision tree.
+    Một nút đơn trong cây quyết định.
     """
     def __init__(self, feature=None, threshold=None, left=None, right=None, *, value=None):
         self.feature = feature
@@ -21,7 +21,7 @@ class Node:
 
 class DecisionTree:
     """
-    An optimized Decision Tree classifier implementation.
+    Triển khai Decision Tree.
     """
     def __init__(self, min_samples_split=2, max_depth=100, n_feats=None, min_info_gain=0):
         self.min_samples_split = min_samples_split
@@ -32,20 +32,20 @@ class DecisionTree:
 
     def fit(self, X, y):
         """
-        Builds the decision tree.
+        Xây dựng cây quyết định.
         """
         self.n_feats = self.n_feats if self.n_feats is not None else X.shape[1]
         self.root = self._grow_tree(X, y)
 
     def predict(self, X):
         """
-        Makes predictions for a set of samples.
+        Thực hiện dự đoán cho một tập hợp các mẫu.
         """
         return np.array([self._traverse_tree(x, self.root) for x in X])
 
     def _grow_tree(self, X, y, depth=0):
         """
-        Recursively grows the decision tree.
+        Phát triển cây quyết định một cách đệ quy.
         """
         n_samples, n_features = X.shape
         if n_samples == 0:
@@ -53,7 +53,7 @@ class DecisionTree:
         
         n_labels = len(np.unique(y))
 
-        # Stopping criteria
+        # Tiêu chí dừng
         if (depth >= self.max_depth
                 or n_labels == 1
                 or n_samples < self.min_samples_split):
@@ -63,7 +63,7 @@ class DecisionTree:
         n_feats_to_sample = min(self.n_feats, n_features)
         feat_idxs = np.random.choice(n_features, n_feats_to_sample, replace=False)
 
-        # Find the best split
+        # Tìm phép chia tốt nhất
         best_feat, best_thresh = self._best_criteria(X, y, feat_idxs)
         
         if best_feat is not None:
@@ -78,7 +78,7 @@ class DecisionTree:
 
     def _best_criteria(self, X, y, feat_idxs):
         """
-        Finds the best feature and threshold for a split.
+        Tìm đặc trưng và ngưỡng tốt nhất cho một phép chia.
         """
         best_gain = self.min_info_gain
         split_idx, split_thresh = None, None
@@ -101,7 +101,7 @@ class DecisionTree:
 
     def _information_gain(self, y, X_column, split_thresh):
         """
-        Calculates the information gain of a split.
+        Tính toán information gain của một phép chia.
         """
         parent_gini = self._gini(y)
         left_idxs, right_idxs = self._split(X_column, split_thresh)
@@ -117,7 +117,7 @@ class DecisionTree:
 
     def _split(self, X_column, split_thresh):
         """
-        Splits a column based on a threshold.
+        Chia một cột dựa trên một ngưỡng.
         """
         left_idxs = np.argwhere(X_column <= split_thresh).flatten()
         right_idxs = np.argwhere(X_column > split_thresh).flatten()
@@ -125,7 +125,7 @@ class DecisionTree:
 
     def _gini(self, y):
         """
-        Calculates the Gini impurity of a set of labels.
+        Tính toán Gini impurity) của một tập hợp các nhãn.
         """
         if len(y) == 0:
             return 0
@@ -135,7 +135,7 @@ class DecisionTree:
 
     def _most_common_label(self, y):
         """
-        Finds the most common label in a set of labels.
+        Tìm nhãn phổ biến nhất trong một tập hợp các nhãn.
         """
         if len(y) == 0:
             return None
@@ -144,7 +144,7 @@ class DecisionTree:
 
     def _traverse_tree(self, x, node):
         """
-        Traverses the tree to predict a label for a single sample.
+        Duyệt cây để dự đoán nhãn cho một mẫu đơn.
         """
         if node.is_leaf_node():
             return node.value
@@ -157,7 +157,7 @@ class DecisionTree:
 
 def _train_single_tree(args):
     """
-    Helper function to train a single tree (for parallel processing).
+    Hàm hỗ trợ để huấn luyện một cây đơn (cho xử lý song song).
     """
     X, y, min_samples_split, max_depth, n_feats, min_info_gain, seed = args
     np.random.seed(seed)
@@ -169,7 +169,7 @@ def _train_single_tree(args):
         min_info_gain=min_info_gain
     )
     
-    # Bootstrap sampling
+    # Lấy mẫu Bootstrap
     n_samples = X.shape[0]
     idxs = np.random.choice(n_samples, n_samples, replace=True)
     X_sample, y_sample = X[idxs], y[idxs]
@@ -180,7 +180,7 @@ def _train_single_tree(args):
 
 class RandomForest:
     """
-    An optimized Random Forest classifier with parallel training and faster predictions.
+    Một bộ phân loại Random Forest được tối ưu hóa với khả năng huấn luyện song song và dự đoán nhanh hơn.
     """
     def __init__(self, n_trees=100, min_samples_split=2, max_depth=100, 
                  n_feats=None, min_info_gain=0, n_jobs=-1):
@@ -194,64 +194,64 @@ class RandomForest:
 
     def fit(self, X, y):
         """
-        Trains the forest using parallel processing for speed.
+        Huấn luyện rừng cây bằng cách sử dụng xử lý song song để tăng tốc độ.
         """
         self.trees = []
         num_features = X.shape[1]
         n_feats_to_use = self.n_feats if self.n_feats is not None else int(np.sqrt(num_features))
         
-        # Prepare arguments for parallel processing
+        # Chuẩn bị các tham số cho xử lý song song
         args_list = [
             (X, y, self.min_samples_split, self.max_depth, 
              n_feats_to_use, self.min_info_gain, np.random.randint(0, 1e9))
             for _ in range(self.n_trees)
         ]
         
-        # Train trees in parallel
+        # Huấn luyện các cây song song
         with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
             futures = [executor.submit(_train_single_tree, args) for args in args_list]
             
-            # Collect results with progress bar
+            # Thu thập kết quả với thanh tiến trình
             for future in tqdm(as_completed(futures), total=self.n_trees, desc="Training Forest"):
                 self.trees.append(future.result())
 
     def predict(self, X):
         """
-        Makes predictions using optimized aggregation.
+        Thực hiện dự đoán bằng cách sử dụng tổng hợp tối ưu.
         """
         n_samples = X.shape[0]
         
-        # Collect predictions from all trees
+        # Thu thập dự đoán từ tất cả các cây
         all_predictions = np.zeros((self.n_trees, n_samples))
         
         for i, tree in enumerate(self.trees):
             all_predictions[i] = tree.predict(X)
         
-        # Optimized voting using scipy's mode or manual implementation
+        # Bỏ phiếu tối ưu bằng cách sử dụng mode của scipy hoặc triển khai thủ công
         final_predictions = self._fast_mode(all_predictions)
         return final_predictions
     
     def _fast_mode(self, predictions):
         """
-        Fast mode calculation for predictions across trees.
-        Uses numpy operations instead of Counter for each sample.
+        Tính toán mode nhanh cho các dự đoán trên các cây.
+        Sử dụng các phép toán numpy thay vì Counter cho mỗi mẫu.
         """
         n_samples = predictions.shape[1]
         result = np.zeros(n_samples)
         
         for i in range(n_samples):
-            # Get all predictions for this sample
+            # Lấy tất cả các dự đoán cho mẫu này
             sample_preds = predictions[:, i]
-            # Find unique values and their counts
+            # Tìm các giá trị duy nhất và số lượng của chúng
             unique_vals, counts = np.unique(sample_preds, return_counts=True)
-            # Return the value with maximum count
+            # Trả về giá trị có số lượng lớn nhất
             result[i] = unique_vals[np.argmax(counts)]
         
         return result
 
     def predict_proba(self, X):
         """
-        Predicts class probabilities by computing the proportion of votes.
+        Dự đoán xác suất lớp bằng cách tính tỷ lệ phiếu bầu.
         """
         n_samples = X.shape[0]
         all_predictions = np.zeros((self.n_trees, n_samples))
@@ -259,11 +259,11 @@ class RandomForest:
         for i, tree in enumerate(self.trees):
             all_predictions[i] = tree.predict(X)
         
-        # Get unique classes
+        # Lấy các lớp duy nhất
         classes = np.unique(all_predictions)
         n_classes = len(classes)
         
-        # Calculate probabilities
+        # Tính toán xác suất
         probas = np.zeros((n_samples, n_classes))
         for i in range(n_samples):
             sample_preds = all_predictions[:, i]
@@ -319,61 +319,61 @@ def evaluate_model_detailed(clf, X, y, dataset_name):
     print("------------------------------------")
 
 def _stratified_k_fold_split(X, y, k):
-    """A from-scratch implementation of stratified k-fold splitting."""
-    # Get indices for each class
+    """Triển khai phân chia k-fold phân tầng từ đầu."""
+    # Lấy chỉ số cho từng lớp
     class_indices = [np.where(y == cls)[0] for cls in np.unique(y)]
     
-    # Initialize folds
+    # Khởi tạo các fold
     folds = [[] for _ in range(k)]
     
-    # Distribute indices of each class into folds
+    # Phân phối chỉ số của từng lớp vào các fold
     for indices in class_indices:
         np.random.shuffle(indices)
         for i, index in enumerate(indices):
             folds[i % k].append(index)
             
-    # Create train/test splits
+    # Tạo các phần chia train/test
     for i in range(k):
         test_indices = np.array(folds[i])
         train_indices = np.concatenate([folds[j] for j in range(k) if i != j])
         yield train_indices, test_indices
 
-def cross_validate_model(clf_class, clf_params, X, y, k=5):
+def cross_validation(clf_class, clf_params, X, y, k=5):
     """
-    Performs k-fold cross-validation for a given classifier.
+    Thực hiện k-fold cross-validation cho một bộ phân loại nhất định.
     
-    Args:
-        clf_class: The classifier class (e.g., RandomForest).
-        clf_params (dict): Parameters to initialize the classifier.
-        X (np.array): Feature data.
-        y (np.array): Target labels.
-        k (int): Number of folds.
+    Tham số:
+        clf_class: Lớp bộ phân loại (ví dụ: RandomForest).
+        clf_params (dict): Các tham số để khởi tạo bộ phân loại.
+        X (np.array): Dữ liệu đặc trưng.
+        y (np.array): Nhãn mục tiêu.
+        k (int): Số lượng fold.
     """
     print(f"--- Bắt đầu {k}-Fold Cross-Validation ---")
     
-    # Store scores for each fold
+    # Lưu trữ điểm số cho mỗi fold
     all_scores = {
         'accuracy': [],
         'precision_0': [], 'recall_0': [], 'f1_0': [],
         'precision_1': [], 'recall_1': [], 'f1_1': []
     }
     
-    # Stratified K-Fold
+    # Phân chia K-Fold phân tầng
     for fold, (train_idx, val_idx) in enumerate(_stratified_k_fold_split(X, y, k)):
         print(f"  Fold {fold+1}/{k}...")
         
-        # Get data for this fold
+        # Lấy dữ liệu cho fold này
         X_train, X_val = X[train_idx], X[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
         
-        # Initialize and train the classifier
+        # Khởi tạo và huấn luyện bộ phân loại
         clf = clf_class(**clf_params)
         clf.fit(X_train, y_train)
         
-        # Make predictions
+        # Thực hiện dự đoán
         y_pred = clf.predict(X_val)
         
-        # Calculate and store metrics
+        # Tính toán và lưu trữ các chỉ số
         accuracy = np.sum(y_val == y_pred) / len(y_val)
         all_scores['accuracy'].append(accuracy)
         
@@ -401,4 +401,3 @@ def cross_validate_model(clf_class, clf_params, X, y, k=5):
         print(f"    - F1-Score:  {mean_f1:.4f} (std: {std_f1:.4f})")
         
     print("------------------------------------------")
-    
