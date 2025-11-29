@@ -299,124 +299,6 @@ def plot_numerical_vs_target_grid(data, numerical_columns, target_column='target
     plt.tight_layout(pad=3.0)
     plt.show()
 
-def plot_experience_interaction(interaction_data):
-    """
-    Vẽ biểu đồ tương tác giữa kinh nghiệm và một biến phân loại khác.
-
-    Args:
-        interaction_data (dict): Đầu ra từ dp.analyze_experience_interaction.
-    """
-    summary = interaction_data['summary']
-    unique_exp_groups = interaction_data['exp_groups']
-    unique_hue_values = interaction_data['hue_values']
-    overall_mean = interaction_data['overall_mean']
-    hue_column_name = interaction_data['hue_column_name']
-    
-    plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(14, 8))
-
-    x = np.arange(len(unique_exp_groups))
-    width = 0.15 # Chiều rộng của mỗi cột
-    
-    num_hues = len(unique_hue_values)
-
-    # Vẽ các cột cho mỗi màu (hue)
-    for i, (hue_val, rates) in enumerate(summary.items()):
-        offset = width * (i - (num_hues - 1) / 2)
-        ax.bar(x + offset, rates, width, label=hue_val)
-
-    # Thêm đường trung bình tổng thể
-    ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
-
-    # Cấu hình biểu đồ
-    ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
-    ax.set_title(f'Tương tác giữa Kinh nghiệm và {hue_column_name.replace("_", " ").title()} đến Tỷ lệ Tìm việc')
-    ax.set_xticks(x)
-    ax.set_xticklabels(unique_exp_groups, rotation=45, ha='right')
-    ax.legend(title=hue_column_name.replace("_", " ").title())
-
-    plt.tight_layout()
-    plt.show()
-
-def plot_bivariate_categorical(analysis_data):
-    """
-    Vẽ biểu đồ tương tác giữa hai biến phân loại từ dữ liệu đã được phân tích trước.
-
-    Args:
-        analysis_data (dict): Đầu ra từ dp.analyze_bivariate_categorical.
-    """
-    summary = analysis_data['summary']
-    x_values = analysis_data['x_values']
-    hue_values = analysis_data['hue_values']
-    overall_mean = analysis_data['overall_mean']
-    x_col_name = analysis_data['x_col_name']
-    hue_col_name = analysis_data['hue_col_name']
-    
-    plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(14, 8))
-
-    x = np.arange(len(x_values))
-    # Điều chỉnh chiều rộng dựa trên số lượng danh mục để tránh lộn xộn
-    num_hues = len(hue_values)
-    width = 0.8 / (num_hues + 1)
-
-    # Vẽ các cột cho mỗi giá trị màu (hue)
-    for i, (hue_val, rates) in enumerate(summary.items()):
-        offset = width * (i - (num_hues - 1) / 2)
-        # Chuyển đổi rates thành mảng numpy để xử lý nan
-        rates_np = np.array(rates, dtype=float)
-        ax.bar(x + offset, rates_np, width, label=hue_val)
-
-    # Thêm đường trung bình tổng thể
-    ax.axhline(y=overall_mean, color='r', linestyle='--', label=f'Tỷ lệ trung bình ({overall_mean:.2f})')
-
-    # Cấu hình biểu đồ
-    ax.set_ylabel('Tỷ lệ Tìm việc (Target=1)')
-    ax.set_title(f'Tương tác giữa {x_col_name.replace("_", " ").title()} và {hue_col_name.replace("_", " ").title()}')
-    ax.set_xticks(x)
-    ax.set_xticklabels(x_values, rotation=45, ha='right')
-    ax.legend(title=hue_col_name.replace("_", " ").title())
-    
-    ax.set_ylim(0, max(ax.get_ylim()[1], overall_mean * 1.2)) # Đảm bảo trục y có khoảng trống
-
-    plt.tight_layout()
-    plt.show()
-
-def plot_numerical_categorical_interaction(data, num_col, cat_col, target_col='target'):
-    """
-    Vẽ biểu đồ tương tác giữa một biến số và một biến phân loại so với mục tiêu.
-    Sử dụng catplot của seaborn để hiển thị box plot theo từng nhóm.
-
-    Args:
-        data (np.ndarray): Bộ dữ liệu.
-        num_col (str): Cột số.
-        cat_col (str): Cột phân loại.
-        target_col (str): Cột mục tiêu.
-    """
-    # Seaborn hoạt động tốt nhất với pandas DataFrames
-    import pandas as pd
-    
-    df = pd.DataFrame(data)
-    
-    # Làm sạch dữ liệu để vẽ biểu đồ
-    df[target_col] = pd.to_numeric(df[target_col])
-    df = df[df[cat_col] != ''] # Loại bỏ danh mục trống
-    
-    # Đối với kinh nghiệm, hãy sử dụng phiên bản nhóm để rõ ràng hơn
-    if cat_col == 'experience':
-        exp_numeric = df['experience'].replace({'>20': '21', '<1': '0', '': '-1'}).astype(int)
-        df['experience_group'] = pd.cut(exp_numeric, 
-                                        bins=[-2, -1, 0, 5, 10, 20, 21], 
-                                        labels=['Missing', 'Fresher (<1)', 'Junior (1-5)', 'Mid-level (6-10)', 'Senior (11-20)', 'Expert (>20)'])
-        cat_col = 'experience_group'
-
-
-    sns.catplot(data=df, x=target_col, y=num_col, col=cat_col, kind='box', col_wrap=4, height=4, aspect=1.2)
-    
-    plt.suptitle(f'Phân phối của {num_col.replace("_", " ").title()} theo {cat_col.replace("_", " ").title()} và Target', y=1.03, fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
-    plt.show()
-
 def _calculate_confusion_matrix(y_true, y_pred, classes):
     """Hàm hỗ trợ để tính toán ma trận nhầm lẫn (confusion matrix) sử dụng numpy."""
     num_classes = len(classes)
@@ -476,6 +358,7 @@ def plot_evaluation_visuals(y_true, y_pred, y_pred_proba, dataset_name=""):
 
     # Tính AUC
     auc_score = -np.trapz(tpr_list, fpr_list)
+    print(f"AUC Score: {auc_score:.4f}")
 
     # Vẽ ROC
     ax2.plot(fpr_list, tpr_list, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
@@ -677,5 +560,173 @@ def plot_train_test_comparison(train_data, test_data):
     ]
     axes[11].legend(handles=legend_elements, loc='center', fontsize=16, title="Dataset", title_fontsize=18, frameon=False)
     
+    plt.show()
+
+def plot_feature_importance(feature_importances, feature_names, top_n=None, title="Feature Importance"):
+    """
+    Vẽ biểu đồ feature importance.
+
+    Args:
+        feature_importances (np.array): Mảng giá trị importance.
+        feature_names (list): Danh sách tên đặc trưng.
+        top_n (int, optional): Số lượng đặc trưng hàng đầu để hiển thị.
+        title (str): Tiêu đề biểu đồ.
+    """
+    # Sắp xếp giảm dần
+    indices = np.argsort(feature_importances)[::-1]
+    
+    if top_n:
+        indices = indices[:top_n]
+    
+    names = [feature_names[i] for i in indices]
+    values = feature_importances[indices]
+    
+    plt.figure(figsize=(12, 8))
+    sns.barplot(x=values, y=names, hue=names, palette="viridis", legend=False)
+    plt.title(title, fontsize=16)
+    plt.xlabel("Importance", fontsize=12)
+    plt.ylabel("Feature", fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+def _get_sorted_unique_values(data, column_name):
+    """
+    Hàm hỗ trợ lấy các giá trị duy nhất đã sắp xếp cho các biến ordinal.
+    """
+    unique_vals = np.unique(data[column_name])
+    
+    # Loại bỏ giá trị rỗng/nan cho mục đích plotting
+    if np.issubdtype(unique_vals.dtype, np.number):
+        unique_vals = unique_vals[~np.isnan(unique_vals)]
+        return np.sort(unique_vals)
+    
+    unique_vals = unique_vals[unique_vals != '']
+    
+    # Định nghĩa thứ tự cho các biến cụ thể
+    if column_name == 'experience':
+        def exp_key(val):
+            if val == '<1': return 0
+            if val == '>20': return 21
+            try: return int(val)
+            except: return -1
+        return sorted(unique_vals, key=exp_key)
+        
+    if column_name == 'company_size':
+        order_map = {'<10': 0, '10/49': 1, '50-99': 2, '100-500': 3, '500-999': 4, 
+                     '1000-4999': 5, '5000-9999': 6, '10000+': 7}
+        return sorted(unique_vals, key=lambda x: order_map.get(x, 99))
+
+    if column_name == 'last_new_job':
+        order_map = {'never': 0, '1': 1, '2': 2, '3': 3, '4': 4, '>4': 5}
+        return sorted(unique_vals, key=lambda x: order_map.get(x, 99))
+        
+    if column_name == 'education_level':
+        order_map = {'Primary School': 0, 'High School': 1, 'Graduate': 2, 'Masters': 3, 'Phd': 4}
+        return sorted(unique_vals, key=lambda x: order_map.get(x, 99))
+        
+    if column_name == 'enrolled_university':
+        order_map = {'no_enrollment': 0, 'Part time course': 1, 'Full time course': 2}
+        return sorted(unique_vals, key=lambda x: order_map.get(x, 99))
+
+    return np.sort(unique_vals)
+
+def plot_heatmap_target_rate(data, row_col, col_col, target_col='target', title=None):
+    """
+    Vẽ heatmap tỷ lệ target cho 2 biến phân loại.
+    """
+    rows = _get_sorted_unique_values(data, row_col)
+    cols = _get_sorted_unique_values(data, col_col)
+    
+    matrix = np.zeros((len(rows), len(cols)))
+    annot_matrix = np.empty((len(rows), len(cols)), dtype=object)
+    
+    for i, r_val in enumerate(rows):
+        for j, c_val in enumerate(cols):
+            mask = (data[row_col] == r_val) & (data[col_col] == c_val)
+            subset_target = data[target_col][mask]
+            
+            if len(subset_target) > 0:
+                rate = np.nanmean(subset_target)
+                count = len(subset_target)
+                matrix[i, j] = rate
+                if count >= 10:
+                     annot_matrix[i, j] = f"{rate:.2f}\n(n={count})"
+                else:
+                     annot_matrix[i, j] = f"{rate:.2f}"
+            else:
+                matrix[i, j] = np.nan
+                annot_matrix[i, j] = "N/A"
+
+    plt.figure(figsize=(max(10, len(cols)*1.2), max(8, len(rows)*0.8)))
+    sns.heatmap(matrix, annot=annot_matrix, fmt='', cmap='RdYlGn_r', 
+                xticklabels=cols, yticklabels=rows)
+    
+    plt.title(title if title else f'Target Rate: {row_col} vs {col_col}', fontsize=16)
+    plt.xlabel(col_col, fontsize=12)
+    plt.ylabel(row_col, fontsize=12)
+    plt.show()
+
+def plot_binned_heatmap(data, cat_col, num_col, target_col='target', bins=5, title=None):
+    """
+    Vẽ heatmap với 1 biến phân loại và 1 biến số (được chia bin).
+    """
+    cat_vals = _get_sorted_unique_values(data, cat_col)
+    num_data = data[num_col][~np.isnan(data[num_col])]
+    if len(num_data) == 0: return
+    
+    percentiles = np.linspace(0, 100, bins+1)
+    bin_edges = np.percentile(num_data, percentiles)
+    
+    bin_labels = []
+    for i in range(bins):
+        bin_labels.append(f"{bin_edges[i]:.2f}-{bin_edges[i+1]:.2f}")
+        
+    matrix = np.zeros((len(cat_vals), bins))
+    
+    for i, cat_val in enumerate(cat_vals):
+        cat_mask = data[cat_col] == cat_val
+        for j in range(bins):
+            low, high = bin_edges[j], bin_edges[j+1]
+            if j == bins - 1:
+                num_mask = (data[num_col] >= low) & (data[num_col] <= high)
+            else:
+                num_mask = (data[num_col] >= low) & (data[num_col] < high)
+                
+            mask = cat_mask & num_mask
+            subset_target = data[target_col][mask]
+            
+            if len(subset_target) > 0:
+                matrix[i, j] = np.nanmean(subset_target)
+            else:
+                matrix[i, j] = np.nan
+                
+    plt.figure(figsize=(12, max(6, len(cat_vals)*0.6)))
+    sns.heatmap(matrix, annot=True, fmt='.2f', cmap='RdYlGn_r', 
+                xticklabels=bin_labels, yticklabels=cat_vals)
+    plt.title(title if title else f'Target Rate: {cat_col} vs {num_col} (Binned)', fontsize=16)
+    plt.xlabel(f'{num_col} Range', fontsize=12)
+    plt.ylabel(cat_col, fontsize=12)
+    plt.show()
+    
+def plot_multivariate_boxplot(data, x_col, y_col, hue_col='target', title=None):
+    """
+    Vẽ boxplot đa biến.
+    """
+    order = _get_sorted_unique_values(data, x_col)
+    
+    plt.figure(figsize=(14, 8))
+    
+    # Chuyển đổi sang dạng dictionary để tương thích tốt hơn với seaborn hue
+    plot_data = {
+        x_col: data[x_col],
+        y_col: data[y_col],
+        hue_col: data[hue_col]
+    }
+    
+    sns.boxplot(x=x_col, y=y_col, hue=hue_col, data=plot_data, order=order)
+    
+    plt.title(title if title else f'{y_col} by {x_col} and {hue_col}', fontsize=16)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     plt.show()
     

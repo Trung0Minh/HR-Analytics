@@ -35,6 +35,7 @@ class DecisionTree:
         Xây dựng cây quyết định.
         """
         self.n_feats = self.n_feats if self.n_feats is not None else X.shape[1]
+        self.feature_importances_ = np.zeros(X.shape[1])
         self.root = self._grow_tree(X, y)
 
     def predict(self, X):
@@ -64,9 +65,10 @@ class DecisionTree:
         feat_idxs = np.random.choice(n_features, n_feats_to_sample, replace=False)
 
         # Tìm phép chia tốt nhất
-        best_feat, best_thresh = self._best_criteria(X, y, feat_idxs)
+        best_feat, best_thresh, best_gain = self._best_criteria(X, y, feat_idxs)
         
         if best_feat is not None:
+            self.feature_importances_[best_feat] += best_gain * n_samples
             left_idxs, right_idxs = self._split(X[:, best_feat], best_thresh)
             if len(left_idxs) > 0 and len(right_idxs) > 0:
                 left = self._grow_tree(X[left_idxs, :], y[left_idxs], depth + 1)
@@ -97,7 +99,7 @@ class DecisionTree:
                     split_idx = feat_idx
                     split_thresh = threshold
 
-        return split_idx, split_thresh
+        return split_idx, split_thresh, best_gain
 
     def _information_gain(self, y, X_column, split_thresh):
         """
@@ -180,7 +182,7 @@ def _train_single_tree(args):
 
 class RandomForest:
     """
-    Một bộ phân loại Random Forest được tối ưu hóa với khả năng huấn luyện song song và dự đoán nhanh hơn.
+    Thuật toán Random Forest
     """
     def __init__(self, n_trees=100, min_samples_split=2, max_depth=100, 
                  n_feats=None, min_info_gain=0, n_jobs=-1):
@@ -214,6 +216,18 @@ class RandomForest:
             # Thu thập kết quả với thanh tiến trình
             for future in tqdm(as_completed(futures), total=self.n_trees, desc="Training Forest"):
                 self.trees.append(future.result())
+
+        # Tính toán Feature Importance trung bình
+        self.feature_importances_ = np.zeros(X.shape[1])
+        for tree in self.trees:
+            self.feature_importances_ += tree.feature_importances_
+        
+        self.feature_importances_ /= self.n_trees
+        
+        # Chuẩn hóa để tổng bằng 1
+        sum_importances = np.sum(self.feature_importances_)
+        if sum_importances > 0:
+            self.feature_importances_ /= sum_importances
 
     def predict(self, X):
         """
