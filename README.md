@@ -1,7 +1,7 @@
 # HR Analytics: Job Change of Data Scientists
 
 ## 1. Mô tả
-Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi công việc của ứng viên sau khóa đào tạo. Toàn bộ quy trình từ xử lý dữ liệu (Data Manipulation) đến xây dựng thuật toán (Random Forest) đều được cài đặt từ đầu sử dụng **NumPy**.
+Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi công việc của ứng viên sau khóa đào tạo. Toàn bộ quy trình từ xử lý dữ liệu đến xây dựng thuật toán (Random Forest) đều được cài đặt từ đầu sử dụng **NumPy**.
 
 [Link GitHub](https://github.com/Trung0Minh/HR-Analytics.git)
 
@@ -82,21 +82,21 @@ Dự án này không chỉ giải quyết bài toán phân loại nhị phân m�
 ## 5. Phương pháp
 
 ### 5.1. Xử lý dữ liệu
-*   **Đọc dữ liệu:** Sử dụng `np.genfromtxt` để tải dữ liệu CSV vào các mảng cấu trúc (Structured Arrays), giúp quản lý dữ liệu hỗn hợp (numerical và categorical) hiệu quả mà không cần Pandas DataFrame.
+*   **Đọc dữ liệu:** Sử dụng `np.genfromtxt` để tải dữ liệu CSV vào các mảng cấu trúc (Structured Arrays), giúp quản lý dữ liệu hỗn hợp hiệu quả mà không cần Pandas DataFrame.
 *   **Thao tác (Manipulation):** Sử dụng thư viện `numpy.lib.recfunctions` để thực hiện các thao tác phức tạp như thêm cột mới, xóa cột, hoặc nối mảng cấu trúc.
 *   **Tiền xử lý:**
-    *   **Mã hóa:** Tự xây dựng hàm `encode_ordinal` để chuyển đổi các biến phân loại (Categorical) sang dạng số dựa trên thứ tự logic.
-    *   **Xử lý dữ liệu thiếu (Imputation):** Áp dụng chiến lược điền giá trị thiếu bằng **trung vị** kết hợp với việc tạo thêm các cột chỉ báo (Indicator columns) để mô hình học được mẫu hình của dữ liệu bị khuyết.
-    *   **Cân bằng dữ liệu:** Cài đặt thuật toán **Random Oversampling** (`random_oversample`) sử dụng NumPy để nhân bản ngẫu nhiên các mẫu thuộc lớp thiểu số, giải quyết vấn đề mất cân bằng dữ liệu.
+    *   **Mã hóa:** Chuyển đổi các biến phân loại sang dạng số dựa trên thứ tự logic.
+    *   **Xử lý dữ liệu thiếu (Imputation):** Điền giá trị thiếu bằng **trung vị** kết hợp với việc tạo thêm các cột chỉ báo (Indicator columns) để mô hình học được mẫu hình của dữ liệu bị khuyết.
+    *   **Cân bằng dữ liệu:** Cài đặt thuật toán **Random Oversampling** (`random_oversample`) để nhân bản ngẫu nhiên các mẫu thuộc lớp thiểu số, giải quyết vấn đề mất cân bằng dữ liệu.
 
 ### 5.2. Thuật toán: Random Forest
 
-*   **Decision Tree - CART:**
+*   **Decision Tree - CART (Classification And Regression Tree):**
     *   Sử dụng tiêu chí **Gini Impurity** để phân chia nút.
-    *   Sử dụng `np.einsum` để tính toán tổng bình phương vector cực nhanh thay vì dùng vòng lặp hay phép cộng thông thường.
-    *   **Tối ưu tốc độ:** Áp dụng kỹ thuật **Quantile Binning** (sử dụng `np.percentile`) để giảm số lượng điểm cắt cần duyệt, giúp tăng tốc độ huấn luyện lên nhiều lần trên dữ liệu liên tục.
+    *   Sử dụng `np.einsum` để tính toán tổng bình phương vector nhanh thay vì dùng vòng lặp hay phép cộng thông thường.
+    *   **Tối ưu tốc độ:** Dùng **Quantile Binning** (sử dụng `np.percentile`) để giảm số lượng điểm cắt cần duyệt, giúp tăng tốc độ huấn luyện lên nhiều lần trên dữ liệu liên tục.
 *   **Random Forest:**
-    *   Triển khai kỹ thuật **Bagging** (Bootstrap Aggregating) kết hợp với **Random Feature Selection**.
+    *   Triển khai **Bagging** (Bootstrap Aggregating) kết hợp với **Random Feature Selection**.
     *   **Xử lý song song:** Sử dụng `ProcessPoolExecutor` để huấn luyện đa luồng (Multi-processing), tận dụng tối đa sức mạnh của đa nhân CPU, giúp tăng tốc độ huấn luyện.
 
 ---
