@@ -3,6 +3,8 @@
 ## 1. Mô tả
 Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi công việc của ứng viên sau khóa đào tạo. Toàn bộ quy trình từ xử lý dữ liệu (Data Manipulation) đến xây dựng thuật toán (Random Forest) đều được cài đặt từ đầu sử dụng **NumPy**.
 
+[Link GitHub](https://github.com/Trung0Minh/HR-Analytics.git)
+
 ---
 
 ## 2. Mục lục
