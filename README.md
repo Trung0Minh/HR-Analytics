@@ -77,16 +77,6 @@ Dự án này không chỉ giải quyết bài toán phân loại nhị phân m�
 
 ---
 
-Sau khi kiểm tra đối chiếu kỹ lưỡng giữa mô tả `README.md` (bạn cung cấp) và mã nguồn thực tế trong `src/models.py`, tôi xin xác nhận:
-
-**ĐÁNH GIÁ: CƠ BẢN LÀ KHỚP, NHƯNG CẦN CHỈNH LẠI CÂU TỪ CHO CHÍNH XÁC HƠN VỀ MẶT KỸ THUẬT.**
-
-Dưới đây là phiên bản viết lại, vừa đảm bảo tính chính xác kỹ thuật (khớp 100% code), vừa dễ hiểu và "khoe" được các kỹ thuật bạn đã dùng.
-
-Bạn hãy thay thế phần **5. Method** trong `README.md` bằng nội dung dưới đây:
-
----
-
 ## 5. Phương pháp
 
 ### 5.1. Xử lý dữ liệu
