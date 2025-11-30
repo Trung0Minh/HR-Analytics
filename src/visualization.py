@@ -281,7 +281,7 @@ def plot_numerical_vs_target_grid(data, numerical_columns, target_column='target
     for i, num_col in enumerate(numerical_columns):
         ax = axes[i]
         
-        # Convert to a dictionary that seaborn can understand for the specific plot
+        # Chuyển đổi sang từ điển mà seaborn có thể hiểu cho biểu đồ cụ thể
         plot_data = {
             num_col: data[num_col],
             target_column: data[target_column]
@@ -729,4 +729,3 @@ def plot_multivariate_boxplot(data, x_col, y_col, hue_col='target', title=None):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
-    

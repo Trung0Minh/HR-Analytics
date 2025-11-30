@@ -1,7 +1,7 @@
 # HR Analytics: Job Change of Data Scientists
 
 ## 1. Mô tả
-Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi công việc của ứng viên sau khóa đào tạo. Điểm đặc biệt của dự án là **KHÔNG sử dụng Pandas hay Scikit-learn models**. Toàn bộ quy trình từ xử lý dữ liệu (Data Manipulation) đến xây dựng thuật toán (Random Forest) đều được cài đặt từ đầu sử dụng **NumPy**.
+Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi công việc của ứng viên sau khóa đào tạo. Toàn bộ quy trình từ xử lý dữ liệu (Data Manipulation) đến xây dựng thuật toán (Random Forest) đều được cài đặt từ đầu sử dụng **NumPy**.
 
 ---
 
@@ -10,16 +10,17 @@ Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi c�
   - [1. Mô tả](#1-mô-tả)
   - [2. Mục lục](#2-mục-lục)
   - [3. Giới thiệu](#3-giới-thiệu)
-    - [Bài toán](#bài-toán)
+    - [Bối cảnh \& Bài toán](#bối-cảnh--bài-toán)
     - [Mục tiêu](#mục-tiêu)
     - [Động lực \& Ứng dụng](#động-lực--ứng-dụng)
   - [4. Dataset](#4-dataset)
-  - [5. Method](#5-method)
-    - [5.1. Data Processing (Không Pandas)](#51-data-processing-không-pandas)
+    - [Bảng đặc trưng](#bảng-đặc-trưng)
+  - [5. Phương pháp](#5-phương-pháp)
+    - [5.1. Xử lý dữ liệu](#51-xử-lý-dữ-liệu)
     - [5.2. Thuật toán: Random Forest](#52-thuật-toán-random-forest)
   - [6. Installation \& Setup](#6-installation--setup)
   - [7. Usage](#7-usage)
-  - [8. Results](#8-results)
+- [8. Results](#8-results)
   - [9. Project Structure](#9-project-structure)
   - [10. Challenges \& Solutions](#10-challenges--solutions)
   - [11. Future Improvements](#11-future-improvements)
@@ -29,68 +30,96 @@ Dự án xây dựng mô hình học máy dự đoán khả năng thay đổi c�
 
 ## 3. Giới thiệu
 
-### Bài toán
-Một công ty hoạt động trong lĩnh vực Big Data và Data Science muốn tuyển dụng các nhà khoa học dữ liệu từ những ứng viên đã hoàn thành các khóa đào tạo do công ty tổ chức. Tuy nhiên, nhiều ứng viên sau khi đào tạo xong lại tìm kiếm việc làm ở công ty khác.
+### Bối cảnh & Bài toán
+Một công ty hoạt động trong lĩnh vực Big Data và Data Science tổ chức các khóa đào tạo và muốn tuyển dụng Data Scientist từ chính nguồn học viên này. Rất nhiều người đã đăng ký tham gia đào tạo.
+
+Vấn đề đặt ra là công ty muốn phân loại và xác định xem ứng viên nào thực sự muốn làm việc cho công ty sau khóa học, và ứng viên nào đang tìm kiếm cơ hội việc làm mới nói chung. Việc dự đoán chính xác giúp công ty:
+*   Giảm thiểu chi phí và thời gian tuyển dụng.
+*   Nâng cao chất lượng đào tạo và quy hoạch các khóa học phù hợp.
+*   Phân loại ứng viên hiệu quả hơn.
 
 ### Mục tiêu
-Xây dựng mô hình dự báo xác suất một ứng viên sẽ tìm việc mới (`target = 1`) hay ở lại làm việc cho công ty (`target = 0`).
+1.  **Dự báo:** Xây dựng mô hình sử dụng dữ liệu nhân khẩu học, giáo dục và kinh nghiệm để dự đoán xác suất một ứng viên sẽ tìm kiếm công việc mới (`target = 1`) hay không (`target = 0`).
+2.  **Interpretability:** Xác định các yếu tố nào ảnh hưởng lớn nhất đến quyết định thay đổi công việc của nhân viên, phục vụ cho các nghiên cứu nhân sự (HR Research).
 
 ### Động lực & Ứng dụng
-*   **Tối ưu chi phí:** Giúp công ty giảm chi phí tuyển dụng và đào tạo bằng cách tập trung vào nhóm ứng viên có khả năng gắn bó cao.
-*   **Thách thức kỹ thuật:** Dự án này được thực hiện để chứng minh khả năng hiểu sâu về **toán học**, **thuật toán** và kỹ thuật **tối ưu hóa code** bằng cách loại bỏ sự phụ thuộc vào các thư viện high-level như Pandas.
+Dự án này không chỉ giải quyết bài toán phân loại nhị phân mà còn hướng tới việc **tối ưu hóa quy trình quản trị nhân sự (HR Analytics)** thông qua dữ liệu.
 
 ---
 
 ## 4. Dataset
 
-*   **Nguồn dữ liệu:** [HR Analytics: Job Change of Data Scientists](https://www.kaggle.com/arashnic/hr-analytics-job-change-of-data-scientists) (Kaggle).
-*   **Kích thước:** ~19,000 dòng, 14 cột.
+*   **Nguồn dữ liệu:** [HR Analytics: Job Change of Data Scientists](https://www.kaggle.com/datasets/arashnic/hr-analytics-job-change-of-data-scientists/data) (Kaggle).
+*   **Kích thước:** Tập huấn luyện (~19,158 dòng) và tập kiểm tra (~2,129 dòng), 14 cột.
 *   **Đặc điểm nổi bật:**
     *   Dữ liệu hỗn hợp (Numerical & Categorical).
-    *   Tỷ lệ giá trị thiếu (Missing values) cao ở một số cột quan trọng (ví dụ: `company_type` thiếu ~32%).
-    *   Mất cân bằng dữ liệu (Imbalance Class): Tỷ lệ 75:25.
-*   **Các đặc trưng chính:**
-    *   `city_development_index`: Chỉ số phát triển của thành phố.
-    *   `education_level`, `experience`: Trình độ học vấn và thâm niên.
-    *   `company_size`, `company_type`: Thông tin về công ty hiện tại.
+    *   Tỷ lệ giá trị thiếu cao ở một số cột quan trọng (ví dụ: `company_type` thiếu ~32%).
+    *   Mất cân bằng nhãn: Tỷ lệ 3:1.
+
+### Bảng đặc trưng
+
+| Tên cột | Mô tả |
+| :--- | :--- |
+| **`enrollee_id`** | ID duy nhất định danh cho từng ứng viên. |
+| **`city`** | Mã thành phố nơi ứng viên sinh sống. |
+| **`city_development_index`** | Chỉ số phát triển của thành phố (đã được chuẩn hóa/scaled). |
+| **`gender`** | Giới tính của ứng viên. |
+| **`relevent_experience`** | Kinh nghiệm làm việc liên quan đến Data Science. |
+| **`enrolled_university`** | Loại khóa học đại học mà ứng viên đang theo học (nếu có). |
+| **`education_level`** | Trình độ học vấn cao nhất của ứng viên. |
+| **`major_discipline`** | Chuyên ngành học chính của ứng viên. |
+| **`experience`** | Tổng số năm kinh nghiệm làm việc. |
+| **`company_size`** | Số lượng nhân viên trong công ty hiện tại của ứng viên. |
+| **`company_type`** | Loại hình doanh nghiệp của công ty hiện tại. |
+| **`last_new_job`** | Số năm chênh lệch giữa công việc trước đó và công việc hiện tại. |
+| **`training_hours`** | Số giờ đào tạo đã hoàn thành. |
+| **`target`** | **Biến mục tiêu:** <br> `0` – Không tìm kiếm việc làm mới. <br> `1` – Đang tìm kiếm việc làm mới. |
 
 ---
 
-## 5. Method
+Sau khi kiểm tra đối chiếu kỹ lưỡng giữa mô tả `README.md` (bạn cung cấp) và mã nguồn thực tế trong `src/models.py`, tôi xin xác nhận:
 
-Dự án tuân thủ nghiêm ngặt quy tắc **chỉ NumPy**:
+**ĐÁNH GIÁ: CƠ BẢN LÀ KHỚP, NHƯNG CẦN CHỈNH LẠI CÂU TỪ CHO CHÍNH XÁC HƠN VỀ MẶT KỸ THUẬT.**
 
-### 5.1. Data Processing (Không Pandas)
-*   **Loading:** Sử dụng `np.genfromtxt` để đọc dữ liệu vào các mảng cấu trúc (Structured Arrays).
-*   **Manipulation:** Sử dụng `numpy.lib.recfunctions` để thao tác trên các trường dữ liệu.
-*   **Preprocessing:**
-    *   Tự viết hàm Ordinal Encoding và One-Hot Encoding.
-    *   Xử lý Missing Values bằng cách tạo category riêng ("Missing") để giữ lại tín hiệu dự báo.
-    *   Oversampling: Tự cài đặt thuật toán **Random Oversampling** để cân bằng dữ liệu.
+Dưới đây là phiên bản viết lại, vừa đảm bảo tính chính xác kỹ thuật (khớp 100% code), vừa dễ hiểu và "khoe" được các kỹ thuật bạn đã dùng.
+
+Bạn hãy thay thế phần **5. Method** trong `README.md` bằng nội dung dưới đây:
+
+---
+
+## 5. Phương pháp
+
+### 5.1. Xử lý dữ liệu
+*   **Đọc dữ liệu:** Sử dụng `np.genfromtxt` để tải dữ liệu CSV vào các mảng cấu trúc (Structured Arrays), giúp quản lý dữ liệu hỗn hợp (numerical và categorical) hiệu quả mà không cần Pandas DataFrame.
+*   **Thao tác (Manipulation):** Sử dụng thư viện `numpy.lib.recfunctions` để thực hiện các thao tác phức tạp như thêm cột mới, xóa cột, hoặc nối mảng cấu trúc.
+*   **Tiền xử lý:**
+    *   **Mã hóa:** Tự xây dựng hàm `encode_ordinal` để chuyển đổi các biến phân loại (Categorical) sang dạng số dựa trên thứ tự logic.
+    *   **Xử lý dữ liệu thiếu (Imputation):** Áp dụng chiến lược điền giá trị thiếu bằng **trung vị** kết hợp với việc tạo thêm các cột chỉ báo (Indicator columns) để mô hình học được mẫu hình của dữ liệu bị khuyết.
+    *   **Cân bằng dữ liệu:** Cài đặt thuật toán **Random Oversampling** (`random_oversample`) sử dụng NumPy để nhân bản ngẫu nhiên các mẫu thuộc lớp thiểu số, giải quyết vấn đề mất cân bằng dữ liệu.
 
 ### 5.2. Thuật toán: Random Forest
-Mô hình được xây dựng từ đầu tại `src/models.py`:
-*   **Decision Tree:** Cài đặt thuật toán CART sử dụng **Gini Impurity**.
-    *   Tối ưu hóa tính toán Gini bằng `np.einsum`.
-    *   Tăng tốc tìm điểm cắt (threshold) bằng phương pháp **Quantile Binning** (dùng `np.percentile`).
+
+*   **Decision Tree - CART:**
+    *   Sử dụng tiêu chí **Gini Impurity** để phân chia nút.
+    *   Sử dụng `np.einsum` để tính toán tổng bình phương vector cực nhanh thay vì dùng vòng lặp hay phép cộng thông thường.
+    *   **Tối ưu tốc độ:** Áp dụng kỹ thuật **Quantile Binning** (sử dụng `np.percentile`) để giảm số lượng điểm cắt cần duyệt, giúp tăng tốc độ huấn luyện lên nhiều lần trên dữ liệu liên tục.
 *   **Random Forest:**
-    *   Sử dụng kỹ thuật **Bagging** (Bootstrap Aggregating).
-    *   Triển khai huấn luyện song song đa luồng (**Parallel Processing**) sử dụng `ProcessPoolExecutor` để tận dụng đa nhân CPU.
+    *   Triển khai kỹ thuật **Bagging** (Bootstrap Aggregating) kết hợp với **Random Feature Selection**.
+    *   **Xử lý song song:** Sử dụng `ProcessPoolExecutor` để huấn luyện đa luồng (Multi-processing), tận dụng tối đa sức mạnh của đa nhân CPU, giúp tăng tốc độ huấn luyện.
 
 ---
 
 ## 6. Installation & Setup
 
-Dự án yêu cầu Python 3.8+.
+Dự án yêu cầu Python 3.11.5
 
 1.  **Clone repository:**
     ```bash
-    git clone https://github.com/yourusername/hr-analytics-numpy.git
-    cd hr-analytics-numpy
+    git clone https://github.com/Trung0Minh/HR-Analytics.git
+    cd HR-Analytics
     ```
 
 2.  **Cài đặt các thư viện cần thiết:**
-    (Lưu ý: Chỉ sử dụng các thư viện cơ bản và visualization)
     ```bash
     pip install -r requirements.txt
     ```
@@ -117,19 +146,24 @@ Dự án được tổ chức thành 3 notebook chạy theo thứ tự:
     ```bash
     jupyter notebook notebooks/03_modeling.ipynb
     ```
-    *Huấn luyện Random Forest tự viết, đánh giá bằng Cross-Validation.*
+    *Huấn luyện mô hình Random Forest. Đánh giá bằng Cross-Validation.*
+
+Hoặc đơn giản là vào từng notebook và nhấn `Run all`.
 
 ---
 
-## 8. Results
+# 8. Results
 
-*   **Metric đánh giá:** F1-Score, Precision, Recall, ROC-AUC.
-*   **Hiệu năng:** Mô hình Random Forest tự xây dựng đạt độ chính xác tương đương với Scikit-learn nhưng cho phép tùy biến sâu hơn.
-*   **Feature Importance:**
-    *   `city_development_index` là yếu tố quan trọng nhất.
-    *   Việc thiếu thông tin công ty (`company_size_is_missing`) là một chỉ báo mạnh cho việc ứng viên muốn nghỉ việc.
+Mô hình Random Forest tự xây dựng đạt kết quả khả quan với **ROC-AUC ~ 0.80** trên tập kiểm thử (Validation), chứng minh khả năng phân loại tốt trong bối cảnh dữ liệu mất cân bằng.
 
-*(Xem chi tiết biểu đồ ROC và Confusion Matrix trong notebook 03)*
+| Tập dữ liệu | Accuracy | AUC | Precision | Recall | F1-Score |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Train** | 84.89% | 0.94 | 0.85 | 0.85 | 0.85 |
+| **Validation** | 78.93% | 0.80 | 0.73 | 0.76 | 0.74 |
+
+**Phân tích nhanh:**
+*   **Chiến lược:** Mô hình ưu tiên **Recall** (phát hiện được nhiều nhất số người muốn nghỉ việc) thay vì Precision, phù hợp với bài toán quản trị rủi ro nhân sự.
+*   **Top feature:** `city_development_index` là yếu tố dự báo mạnh nhất.
 
 ---
 
@@ -137,19 +171,24 @@ Dự án được tổ chức thành 3 notebook chạy theo thứ tự:
 
 ```
 ├── data/
-│   ├── raw/                   # Dữ liệu gốc (aug_train.csv, aug_test.csv)
-│   └── processed/             # Dữ liệu sau khi xử lý
+│   ├── raw/                            # Dữ liệu gốc
+|       ├── aug_train.csv
+|       └── aug_test.csv
+│   └── processed/                      # Dữ liệu sau khi xử lý
+|       ├── aug_train_processed.csv
+|       └── aug_test_processed.csv
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb
 │   ├── 02_preprocessing.ipynb
 │   └── 03_modeling.ipynb
 ├── src/
 │   ├── __init__.py
-│   ├── data_processing.py     # Module xử lý dữ liệu (NumPy only)
-│   ├── models.py              # Cài đặt Random Forest & Decision Tree
-│   └── visualization.py       # Các hàm vẽ biểu đồ (Matplotlib/Seaborn)
+│   ├── data_processing.py              # Module xử lý dữ liệu
+│   ├── visualization.py                # Các hàm vẽ biểu đồ
+│   └── models.py                       # Cài đặt Random Forest
 ├── README.md
-└── requirements.txt
+├── LICENSE
+└── requirements.txt                    # Các thư viện cần thiết
 ```
 
 ---
@@ -168,15 +207,13 @@ Dự án được tổ chức thành 3 notebook chạy theo thứ tự:
 
 *   Cài đặt thêm thuật toán **Gradient Boosting** từ đầu.
 *   Tối ưu hóa hơn nữa việc sử dụng bộ nhớ cho tập dữ liệu lớn hơn.
-*   Triển khai Grid Search tự động để tinh chỉnh tham số (Hyperparameter Tuning).
 
 ---
 
 ## 12. Contributors
 
-**Hoàng Minh Trung** - 23TNT
+**Hoàng Minh Trung** - 23122014 - 23TNT
 
-*   MSSV: *23122014*
 *   Email: *23122014@student.hcmus.edu.vn*
 *   [LinkedIn](https://www.linkedin.com/in/trung-ho%C3%A0ng-minh-b83216215/)
 *   [GitHub](https://github.com/Trung0Minh)
